@@ -41,6 +41,11 @@ type ProviderConfig interface {
 	// AllModels returns every configured model — used for tag listing and
 	// conflict detection across providers.
 	AllModels() []Model
+
+	// SysPromptExtension returns text appended to the sys prompt when this
+	// provider is in use, e.g. local models that ignore text.format get the
+	// JSON schema embedded in the prompt. "" = nothing to add.
+	SysPromptExtension() string
 }
 
 // findModel returns the model name for a tag within one provider's list.
@@ -60,12 +65,19 @@ type OpenRouterConfig struct {
 	APIKeyEnv string  `json:"api_key_env"` // read key from this environment variable
 	APIKey    string  `json:"api_key"`     // inline key (least safe)
 	Models    []Model `json:"models"`
+	// PromptExtension is appended to the sys prompt when this provider is
+	// used.
+	PromptExtension string `json:"sys_prompt_extension,omitempty"`
 }
 
 var _ ProviderConfig = (*OpenRouterConfig)(nil)
 
 func (c *OpenRouterConfig) FileName() string   { return "openrouter.json" }
 func (c *OpenRouterConfig) AllModels() []Model { return c.Models }
+
+// SysPromptExtension: whatever sys_prompt_extension holds in the config
+// (empty by default)
+func (c *OpenRouterConfig) SysPromptExtension() string { return c.PromptExtension }
 
 // LoadOrCreate reads providers/openrouter.json into itself; a missing file
 // is generated from the default template first.
@@ -93,12 +105,19 @@ type OpenAIConfig struct {
 	APIKeyEnv string  `json:"api_key_env"`
 	APIKey    string  `json:"api_key"`
 	Models    []Model `json:"models"`
+	// PromptExtension is appended to the sys prompt when this provider is
+	// used. Empty by default
+	PromptExtension string `json:"sys_prompt_extension,omitempty"`
 }
 
 var _ ProviderConfig = (*OpenAIConfig)(nil)
 
 func (c *OpenAIConfig) FileName() string   { return "openai.json" }
 func (c *OpenAIConfig) AllModels() []Model { return c.Models }
+
+// SysPromptExtension: whatever sys_prompt_extension holds in the config
+// (empty by default).
+func (c *OpenAIConfig) SysPromptExtension() string { return c.PromptExtension }
 
 // LoadOrCreate reads providers/openai.json into itself; a missing file
 // is generated from the default template first.
@@ -126,12 +145,23 @@ type LMStudioConfig struct {
 	BaseURL string  `json:"base_url"` // e.g. http://127.0.0.1
 	Port    string  `json:"port"`     // e.g. 1234
 	Models  []Model `json:"models"`
+	// PromptExtension is appended to the sys prompt when this provider is
+	// used. LM Studio does not reliably pass text.format to local models,
+	// so the generated default contains the JSON schema; edit freely.
+	PromptExtension string `json:"sys_prompt_extension"`
 }
 
 var _ ProviderConfig = (*LMStudioConfig)(nil)
 
 func (c *LMStudioConfig) FileName() string   { return "lmstudio.json" }
 func (c *LMStudioConfig) AllModels() []Model { return c.Models }
+
+// SysPromptExtension returns the text appended to the sys prompt when this
+// provider is in use — straight from the sys_prompt_text config field, so
+// the file is the source of truth the user can edit.
+func (c *LMStudioConfig) SysPromptExtension() string {
+	return c.PromptExtension
+}
 
 // LoadOrCreate reads providers/lmstudio.json into itself; a missing file
 // is generated from the default template first.
@@ -167,10 +197,22 @@ func DefaultOpenAIConfig() OpenAIConfig {
 
 func DefaultLMStudioConfig() LMStudioConfig {
 	return LMStudioConfig{
-		BaseURL: "http://127.0.0.1",
-		Port:    "1234",
-		Models:  []Model{{Tag: "lms-gemma", Name: "google/gemma-4-26b-a4b"}},
+		BaseURL:         "http://127.0.0.1",
+		Port:            "1234",
+		Models:          []Model{{Tag: "lms-gemma", Name: "google/gemma-4-26b-a4b"}},
+		PromptExtension: lmsSysPromptExtension(),
 	}
+}
+
+// lmsSysPromptExtension builds the schema-in-prompt text (pattern from
+// rellm's e2e_format_text_agent) written into the generated lmstudio.json.
+func lmsSysPromptExtension() string {
+	schema, err := json.Marshal(CommandTextFormat().Schema)
+	if err != nil {
+		return ""
+	}
+	return "\nOutput schema:\n" + string(schema) +
+		"\nONLY parsable json string allowed as result, no additional markdown formatting"
 }
 
 // loadOrCreate is the shared file plumbing behind LoadOrCreate: the provider
@@ -255,17 +297,18 @@ func checkTagConflicts(list []ProviderConfig) error {
 
 // Build resolves a tag to a ready provider: ask each provider in order.
 // nil,nil from an implementation means "not my tag, ask the next one".
-func (ps Providers) Build(tag string) (rellm.Provider, error) {
+// The returned string is the provider's sys prompt extension ("" for none).
+func (ps Providers) Build(tag string) (rellm.Provider, string, error) {
 	for _, pc := range ps.list {
 		provider, err := pc.BuildForTag(tag)
 		if err != nil {
-			return nil, err // tag was mine but building failed — stop here
+			return nil, "", err // tag was mine but building failed — stop here
 		}
 		if provider != nil {
-			return provider, nil // tag was mine, built — done
+			return provider, pc.SysPromptExtension(), nil // tag was mine, built — done
 		}
 	}
-	return nil, fmt.Errorf("unknown model tag %q — run cluesh --llm-list to see configured models", tag)
+	return nil, "", fmt.Errorf("unknown model tag %q — run cluesh --llm-list to see configured models", tag)
 }
 
 // LLMList renders every configured tag for --llm-list.

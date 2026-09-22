@@ -31,7 +31,7 @@ func main() {
 		panic(err)
 	}
 
-	provider, err := providers.Build(mainCfg.DefaultModelTag)
+	provider, promptExtension, err := providers.Build(mainCfg.DefaultModelTag)
 	if err != nil {
 		panic(err)
 	}
@@ -39,7 +39,7 @@ func main() {
 	cfg := cluesh.AgentConfig{
 		Provider:     provider,
 		Conversation: rellm.NewInMemoryConversation(),
-		SysPrompt:    sysPrompt,
+		SysPrompt:    sysPrompt + promptExtension,
 		MaxSteps:     10,
 	}
 
