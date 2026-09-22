@@ -13,10 +13,10 @@ import (
 func main() {
 
 	//keep this will be usefull in next round of test
-	if len(os.Args) != 0 {
-		cluesh.TPrint()
-		return
-	}
+	// if len(os.Args) != 0 {
+	// 	cluesh.TPrint()
+	// 	return
+	// }
 
 	mainCfg, sysPrompt, err := cluesh.LoadConfig()
 	if err != nil {

@@ -53,5 +53,5 @@ func TPrint() {
 		panic(err)
 	}
 
-	Print(LightMode{}, cmd)
+	Print(DarkMode{}, cmd)
 }
