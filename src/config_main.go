@@ -40,7 +40,7 @@ const SysPromptFileName = "sysprompt.md"
 
 // MainConfig is the main configuration of the program.
 type MainConfig struct {
-	DefaultModelTag   string `json:"default_model_tag"`   // required, e.g. "or-glm53flash"
+	DefaultModelTag   string `json:"default_model_tag"`    // required, e.g. "or-glm53flash"
 	PutCmdInClipboard string `json:"put_cmd_in_clipboard"` // always | never | read-only
 	Colors            string `json:"colors"`               // dark | light | none
 }

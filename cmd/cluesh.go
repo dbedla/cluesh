@@ -18,14 +18,20 @@ func main() {
 	// 	return
 	// }
 
-	// mainCfg (model tag, clipboard mode, colors) is consumed as the
-	// provider/tools wiring lands; validation of the config already happened.
-	_, sysPrompt, err := cluesh.LoadConfig()
+	mainCfg, sysPrompt, err := cluesh.LoadConfig()
 	if err != nil {
 		panic(err)
 	}
 
-	provider, err := cluesh.BuildOpenRouterProvider(rellm.Model("z-ai/glm-5.3-flash"))
+	providers, created, err := cluesh.LoadProviders()
+	for _, p := range created {
+		fmt.Printf("created %s\n", p)
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	provider, err := providers.Build(mainCfg.DefaultModelTag)
 	if err != nil {
 		panic(err)
 	}
@@ -64,4 +70,3 @@ func main() {
 
 	cluesh.Print(&cluesh.DarkMode{}, cmd)
 }
-
