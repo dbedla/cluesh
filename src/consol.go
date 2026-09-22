@@ -1,21 +1,25 @@
 package cluesh
 
 import (
+	"fmt"
+
 	"github.com/fatih/color"
 )
 
 func Print(format Consol, c Command) {
-	format.FinalComand("%s", c.FinalCommand)
+	format.FinalComand("\n%s\n\n", c.FinalCommand)
 	for _, sc := range c.SubCommands {
-		format.SubCommand("%s", sc.Command)
+		format.SubCommand("\t%s", sc.Command)
 		for _, arg := range sc.Arguments {
-			format.Argument("   - %s", arg.Argument)
-			format.ArgumentDescription("       %s", arg.Description)
+			format.Argument("\t\t- %s", arg.Argument)
+			format.ArgumentDescription("\t\t\t%s", arg.Description)
 		}
+		fmt.Println()
 	}
 	if c.Notes != "" {
-		format.Notes("%s", c.Notes)
+		format.Notes("%s\n", c.Notes)
 	}
+	fmt.Println()
 }
 
 type Consol interface {
