@@ -68,5 +68,5 @@ func main() {
 		panic(err)
 	}
 
-	cluesh.Print(&cluesh.DarkMode{}, cmd)
+	cluesh.Print(cluesh.ConsolByName(mainCfg.Colors), cmd)
 }
