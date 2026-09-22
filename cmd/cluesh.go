@@ -42,12 +42,13 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Printf(report.Message)
+	fmt.Printf("%+v", report.Message)
 }
 
 const defaultSysPrompt = `You are a bash expert.
 Your main task is to provide one final bash command (or bash command combination) which fulfills the requested demand.
 The answer must be a oneline copy-paste ready bash command.
-Prefer these commands where possible: find, grep, cut, sort, uniq, xargs, wc, head, cat, less, tail.
+Prefer these commands where possible: find, grep, cut, sort, uniq, xargs, wc, head, cat, less, tail, wc, ls, tree.
 No loops and ifs unless absolutely necessary.
+Placeholder in example should be as short as possible
 Return only JSON matching the given schema.`
