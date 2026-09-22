@@ -1,53 +1,89 @@
+// Package cluesh — agent wiring: natural-language bash demand in, one
+// copy-paste-ready command out, as schema-constrained JSON.
 package cluesh
 
 import (
-	"os"
+	"encoding/json"
+	"errors"
 
 	"github.com/dbedla/rellm/pkg/rellm"
 	"github.com/invopop/jsonschema"
-	"github.com/joho/godotenv"
 )
 
-// The struct tags describe the schema.
-type Person struct {
-	Name string `json:"name" jsonschema:"description=Full name of the person"`
-	Age  int    `json:"age"  jsonschema:"description=Age in years"`
-	City string `json:"city" jsonschema:"description=City of residence"`
+// Command is the agent's structured output: one final command plus the
+// explanation of every subcommand and argument it consists of.
+type Command struct {
+	FinalCommand string       `json:"finalCommand" jsonschema:"description=The final bash command, oneline, copy-paste ready"`
+	SubCommands  []SubCommand `json:"subCommands"  jsonschema:"description=Every command of the pipeline with its arguments explained"`
+	Notes        string       `json:"notes"        jsonschema:"description=Short notes, e.g. caveats or variants, empty if none"`
+	RedOnly      bool         `json:"redOnly"      jsonschema:"description=true when the command does not change any file, false when it modifies anything"`
 }
 
-func NewAgent() *rellm.Agent {
+// SubCommand is one command within the pipeline.
+type SubCommand struct {
+	Command   string     `json:"command"   jsonschema:"description=Name of the command, e.g. find"`
+	Arguments []Argument `json:"arguments" jsonschema:"description=Arguments of the command"`
+}
 
-	textFormat := rellm.TextFormat{
+// Argument is one argument with its explanation.
+type Argument struct {
+	Argument    string `json:"argument"    jsonschema:"description=The argument as written, e.g. -type f"`
+	Description string `json:"description" jsonschema:"description=What the argument does"`
+}
+
+// DefaultMaxAgentSteps caps the tool-calling loop when a toolset is injected.
+const DefaultMaxAgentSteps = 5
+
+// AgentConfig carries everything needed to build the agent. Conversation and
+// Toolset may be nil; MaxSteps and SysPrompt fall back to defaults when zero.
+type AgentConfig struct {
+	Provider     rellm.Provider
+	Conversation rellm.Conversation // nil → new in-memory conversation
+	Toolset      rellm.Toolset      // nil → no tools
+	MaxSteps     uint64             // zero → DefaultMaxAgentSteps
+	SysPrompt    string             // empty → defaultSysPrompt (+ embedded schema)
+}
+
+// CommandTextFormat returns the JSON-schema text format generated from Command.
+func CommandTextFormat() rellm.TextFormat {
+	return rellm.TextFormat{
 		Type:   "json_schema",
-		Name:   "person",
+		Name:   "command",
 		Strict: true,
-		Schema: (&jsonschema.Reflector{DoNotReference: true}).Reflect(&Person{}),
+		Schema: (&jsonschema.Reflector{DoNotReference: true}).Reflect(&Command{}),
+	}
+}
+
+// NewAgent builds the agent from the given provider, conversation and optional
+// toolset, configured for structured output into Command.
+func NewAgent(cfg AgentConfig) (*rellm.Agent, error) {
+	textFormat := CommandTextFormat()
+
+	steps := cfg.MaxSteps
+	if steps == 0 {
+		return nil, errors.New("no agent steps defined")
 	}
 
-	_ = godotenv.Load() // reads OPENROUTER_API_KEY from .env
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
-	if apiKey == "" {
-		panic("OPENROUTER_API_KEY is not set")
-	}
-
-	provider, err := rellm.NewOpenRouterProvider(apiKey, "openai/gpt-5.6-luna")
-	if err != nil {
-		panic(err)
-	}
-
-	agent, err := rellm.NewAgentBuilder().
-		WithProvider(provider).
-		WithAgentName("StructuredOutputAgent").
-		WithMaxAgentSteps(20).
-		WithConversation(rellm.NewInMemoryConversation()).
-		WithImageGenerationKeepInTheLoop().
-		WithUnknownConversationElementKeepInTheLoop().
-		WithSystemMessage("You are an assistant that extracts structured information from user text and returns only valid JSON matching the requested schema.").
+	builder := rellm.NewAgentBuilder().
+		WithAgentName("cluesh").
+		WithProvider(cfg.Provider).
+		WithMaxAgentSteps(steps).
+		WithConversation(cfg.Conversation).
+		WithSystemMessage(cfg.SysPrompt).
 		WithTextFormat(textFormat).
-		Build()
-	if err != nil {
-		panic(err)
+		WithImageGenerationKeepInTheLoop().
+		WithUnknownConversationElementKeepInTheLoop()
+
+	if cfg.Toolset != nil {
+		builder = builder.WithToolset(cfg.Toolset, rellm.ParallelToolCallsDisable)
 	}
 
-	return agent
+	return builder.Build()
+}
+
+// ParseAgentResult unmarshals the agent's final message into Command.
+func ParseAgentResult(report rellm.Report) (Command, error) {
+	var cmd Command
+	err := json.Unmarshal([]byte(report.Message), &cmd)
+	return cmd, err
 }
