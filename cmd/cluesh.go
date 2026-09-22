@@ -42,7 +42,14 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Printf("%+v", report.Message)
+	fmt.Printf("raw: %s\n", report.Message)
+
+	cmd, err := cluesh.ParseAgentResult(report)
+	if err != nil {
+		panic(err)
+	}
+
+	cluesh.Print(&cluesh.DarkMode{}, cmd)
 }
 
 const defaultSysPrompt = `You are a bash expert.
@@ -50,5 +57,6 @@ Your main task is to provide one final bash command (or bash command combination
 The answer must be a oneline copy-paste ready bash command.
 Prefer these commands where possible: find, grep, cut, sort, uniq, xargs, wc, head, cat, less, tail, wc, ls, tree.
 No loops and ifs unless absolutely necessary.
-Placeholder in example should be as short as possible
+Placeholder in example should be as short as possible.
+subCommands must list EVERY command of the pipeline in order, including the first, each with ALL its arguments explained — e.g. "ls -la dir" → one subCommand "ls" with arguments -l, -a, dir; never leave subCommands empty.
 Return only JSON matching the given schema.`

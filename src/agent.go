@@ -13,9 +13,8 @@ import (
 // Command is the agent's structured output: one final command plus the
 // explanation of every subcommand and argument it consists of.
 type Command struct {
-	FinalCommand          string       `json:"finalCommand" jsonschema:"description=The final bash command, oneline, copy-paste ready"`
-	FinalCommandArguments []Argument   `json:"finalCommandArguments" jsonschema:"description=Arguments of the final command command"`
-	SubCommands           []SubCommand `json:"subCommands"  jsonschema:"description=Every command of the pipeline with its arguments explained"`
+	FinalCommand string       `json:"finalCommand" jsonschema:"description=The final bash command, oneline, copy-paste ready"`
+	SubCommands  []SubCommand `json:"subCommands"  jsonschema:"description=EVERY command of the pipeline, in order, including the first, each with ALL its arguments explained, never empty"`
 	Notes                 string       `json:"notes"        jsonschema:"description=Short notes, e.g. caveats or variants, empty if none"`
 	RedOnly               bool         `json:"redOnly"      jsonschema:"description=true when the command does not change any file, false when it modifies anything"`
 }
