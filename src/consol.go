@@ -14,7 +14,7 @@ func Print(format Consol, c Command) {
 	for _, sc := range c.SubCommands {
 		format.SubCommand("\t%s\n", sc.Command)
 		for _, arg := range sc.Arguments {
-			format.Argument("\t\t- %s\n", arg.Argument)
+			format.Argument("\t\t %s\n", arg.Argument)
 			format.ArgumentDescription("\t\t  %s\n", arg.Description)
 		}
 		fmt.Println()
@@ -47,19 +47,19 @@ type DarkMode struct{}
 var _ Consol = &DarkMode{}
 
 func (_ DarkMode) FinalComand(format string, a ...interface{}) {
-	colored(color.New(color.FgHiRed))(format, a...)
+	colored(color.New(color.FgHiYellow, color.Bold))(format, a...)
 }
 func (_ DarkMode) SubCommand(format string, a ...interface{}) {
-	colored(color.New(color.FgHiCyan))(format, a...)
-}
-func (_ DarkMode) Argument(format string, a ...interface{}) {
-	colored(color.New(color.FgHiYellow))(format, a...)
-}
-func (_ DarkMode) ArgumentDescription(format string, a ...interface{}) {
 	colored(color.New(color.FgHiWhite))(format, a...)
 }
+func (_ DarkMode) Argument(format string, a ...interface{}) {
+	colored(color.New(color.FgHiWhite))(format, a...)
+}
+func (_ DarkMode) ArgumentDescription(format string, a ...interface{}) {
+	colored(color.New(color.FgHiGreen))(format, a...)
+}
 func (_ DarkMode) Notes(format string, a ...interface{}) {
-	colored(color.New(color.FgHiBlue))(format, a...)
+	colored(color.New(color.FgCyan, color.Italic))(format, a...)
 }
 
 // LightMode — colors tuned for light terminals.
@@ -68,19 +68,19 @@ type LightMode struct{}
 var _ Consol = &LightMode{}
 
 func (_ LightMode) FinalComand(format string, a ...interface{}) {
-	colored(color.New(color.FgRed))(format, a...)
+	colored(color.New(color.FgBlue, color.Bold))(format, a...)
 }
 func (_ LightMode) SubCommand(format string, a ...interface{}) {
-	colored(color.New(color.FgCyan))(format, a...)
+	colored(color.New(color.FgMagenta))(format, a...)
 }
 func (_ LightMode) Argument(format string, a ...interface{}) {
-	colored(color.New(color.FgYellow))(format, a...)
+	colored(color.New(color.FgHiMagenta))(format, a...)
 }
 func (_ LightMode) ArgumentDescription(format string, a ...interface{}) {
 	colored(color.New(color.FgBlack))(format, a...)
 }
 func (_ LightMode) Notes(format string, a ...interface{}) {
-	colored(color.New(color.FgGreen))(format, a...)
+	colored(color.New(color.FgHiBlue, color.Italic))(format, a...)
 }
 
 // NoMode — plain text, byte-identical layout to the colored modes.
