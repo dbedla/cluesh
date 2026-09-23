@@ -13,6 +13,7 @@ import (
 type Params struct {
 	Continue bool   // -c: continue last conversation
 	LLMList  bool   // --llm-list: list configured models and exit
+	LLMTag   string // --llm: model tag to use for this run
 	Prompt   string // the positional demand
 }
 
@@ -26,6 +27,7 @@ func ParseParams(args []string) (Params, error) {
 	fs.SetOutput(io.Discard)
 	fs.BoolVarP(&p.Continue, "continue", "c", false, "continue last conversation")
 	fs.BoolVar(&p.LLMList, "llm-list", false, "list configured models and exit")
+	fs.StringVarP(&p.LLMTag, "llm", "", "", "use model with tag <tag> this run")
 
 	if err := fs.Parse(args); err != nil {
 		return Params{}, err

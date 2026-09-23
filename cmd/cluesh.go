@@ -41,7 +41,12 @@ func main() {
 		return
 	}
 
-	provider, promptExtension, err := providers.Build(mainCfg.DefaultModelTag)
+	modelTag := mainCfg.DefaultModelTag
+	if parseParams.LLMTag != "" {
+		modelTag = parseParams.LLMTag
+	}
+
+	provider, promptExtension, err := providers.Build(modelTag)
 	if err != nil {
 		exit(err)
 	}
