@@ -87,6 +87,35 @@ func TestReasoningEffortMapping(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestResolveAPIKey(t *testing.T) {
+	// env var wins over inline
+	t.Setenv("OPENROUTER_API_KEY", "from-env")
+	k, err := resolveAPIKey("openrouter", "OPENROUTER_API_KEY", "inline")
+	assert.NoError(t, err)
+	assert.Equal(t, "from-env", k)
+
+	// env var unset → inline fallback
+	t.Setenv("OPENROUTER_API_KEY", "")
+	k, err = resolveAPIKey("openrouter", "OPENROUTER_API_KEY", "inline")
+	assert.NoError(t, err)
+	assert.Equal(t, "inline", k)
+
+	// both unset → error naming the env var
+	_, err = resolveAPIKey("openrouter", "OPENROUTER_API_KEY", "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "OPENROUTER_API_KEY")
+
+	// no env name configured → inline directly
+	k, err = resolveAPIKey("openrouter", "", "inline-only")
+	assert.NoError(t, err)
+	assert.Equal(t, "inline-only", k)
+
+	// nothing configured at all
+	_, err = resolveAPIKey("openrouter", "", "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no api key configured")
+}
+
 func TestBuildByTag(t *testing.T) {
 	ps, _, err := LoadProviders(t.TempDir())
 	assert.NoError(t, err)

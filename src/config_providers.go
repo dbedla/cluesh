@@ -71,10 +71,10 @@ type ProviderConfig interface {
 	LoadOrCreate(dir string) (created bool, err error)
 
 	// BuildForTag: if the tag is defined in this provider, construct and
-	// return the rellm provider. If the tag is not defined here, return
-	// (nil, nil). Error only when the tag IS mine but building fails
-	// (bad auth, invalid model, ...).
-	BuildForTag(tag string) (rellm.Provider, error)
+	// return the rellm provider plus the model's config. If the tag is
+	// not defined here, return (nil, ModelConfigData{}, nil). Error only
+	// when the tag IS mine but building fails (bad auth, invalid model, ...).
+	BuildForTag(tag string) (rellm.Provider, ModelConfigData, error)
 
 	// AllModels returns every configured model — used for tag listing and
 	// conflict detection across providers.
@@ -86,36 +86,39 @@ type ProviderConfig interface {
 	SysPromptExtension() string
 }
 
-// findModel returns the model name for a tag within one provider's list.
-func findModel(models []ModelConfigData, tag string) (string, bool) {
+// findModel returns the model config for a tag within one provider's list.
+func findModel(models []ModelConfigData, tag string) (ModelConfigData, bool) {
 	for _, m := range models {
 		if m.Tag == tag {
-			return m.Name, true
+			return m, true
 		}
 	}
-	return "", false
+	return ModelConfigData{}, false
 }
+
+// ── API-key providers: shared core ────────────────────────────────────
+
+// apiKeyConfig is the shared core of every provider that authenticates
+// with an API key: same file fields, same tag routing. Embedded by
+// OpenRouterConfig and OpenAIConfig — only the constructor differs.
+type apiKeyConfig struct {
+	APIKeyEnv       string            `json:"api_key_env"` // read key from this environment variable
+	APIKey          string            `json:"api_key"`     // inline key (least safe)
+	Models          []ModelConfigData `json:"models"`
+	PromptExtension string            `json:"sys_prompt_extension,omitempty"` // appended to the sys prompt
+}
+
+func (c *apiKeyConfig) AllModels() []ModelConfigData { return c.Models }
+func (c *apiKeyConfig) SysPromptExtension() string   { return c.PromptExtension }
 
 // ── OpenRouter ────────────────────────────────────────────────────────
 
 // OpenRouterConfig is the content of providers/openrouter.json.
-type OpenRouterConfig struct {
-	APIKeyEnv string            `json:"api_key_env"` // read key from this environment variable
-	APIKey    string            `json:"api_key"`     // inline key (least safe)
-	Models    []ModelConfigData `json:"models"`
-	// PromptExtension is appended to the sys prompt when this provider is
-	// used.
-	PromptExtension string `json:"sys_prompt_extension,omitempty"`
-}
+type OpenRouterConfig struct{ apiKeyConfig }
 
 var _ ProviderConfig = (*OpenRouterConfig)(nil)
 
-func (c *OpenRouterConfig) FileName() string             { return "openrouter.json" }
-func (c *OpenRouterConfig) AllModels() []ModelConfigData { return c.Models }
-
-// SysPromptExtension: whatever sys_prompt_extension holds in the config
-// (empty by default)
-func (c *OpenRouterConfig) SysPromptExtension() string { return c.PromptExtension }
+func (c *OpenRouterConfig) FileName() string { return "openrouter.json" }
 
 // LoadOrCreate reads providers/openrouter.json into itself; a missing file
 // is generated from the default template first.
@@ -124,38 +127,30 @@ func (c *OpenRouterConfig) LoadOrCreate(dir string) (bool, error) {
 }
 
 // BuildForTag builds the provider when tag belongs to OpenRouter.
-func (c *OpenRouterConfig) BuildForTag(tag string) (rellm.Provider, error) {
-	name, ok := findModel(c.Models, tag)
+func (c *OpenRouterConfig) BuildForTag(tag string) (rellm.Provider, ModelConfigData, error) {
+	m, ok := findModel(c.Models, tag)
 	if !ok {
-		return nil, nil // not my tag
+		return nil, ModelConfigData{}, nil // not my tag
 	}
 	key, err := resolveAPIKey("openrouter", c.APIKeyEnv, c.APIKey)
 	if err != nil {
-		return nil, err
+		return nil, ModelConfigData{}, err
 	}
-	return rellm.NewOpenRouterProvider(key, rellm.Model(name))
+	p, err := rellm.NewOpenRouterProvider(key, rellm.Model(m.Name))
+	if err != nil {
+		return nil, ModelConfigData{}, err
+	}
+	return p, m, nil
 }
 
 // ── OpenAI ────────────────────────────────────────────────────────────
 
 // OpenAIConfig is the content of providers/openai.json.
-type OpenAIConfig struct {
-	APIKeyEnv string            `json:"api_key_env"`
-	APIKey    string            `json:"api_key"`
-	Models    []ModelConfigData `json:"models"`
-	// PromptExtension is appended to the sys prompt when this provider is
-	// used. Empty by default
-	PromptExtension string `json:"sys_prompt_extension,omitempty"`
-}
+type OpenAIConfig struct{ apiKeyConfig }
 
 var _ ProviderConfig = (*OpenAIConfig)(nil)
 
-func (c *OpenAIConfig) FileName() string             { return "openai.json" }
-func (c *OpenAIConfig) AllModels() []ModelConfigData { return c.Models }
-
-// SysPromptExtension: whatever sys_prompt_extension holds in the config
-// (empty by default).
-func (c *OpenAIConfig) SysPromptExtension() string { return c.PromptExtension }
+func (c *OpenAIConfig) FileName() string { return "openai.json" }
 
 // LoadOrCreate reads providers/openai.json into itself; a missing file
 // is generated from the default template first.
@@ -164,16 +159,20 @@ func (c *OpenAIConfig) LoadOrCreate(dir string) (bool, error) {
 }
 
 // BuildForTag builds the provider when tag belongs to OpenAI.
-func (c *OpenAIConfig) BuildForTag(tag string) (rellm.Provider, error) {
-	name, ok := findModel(c.Models, tag)
+func (c *OpenAIConfig) BuildForTag(tag string) (rellm.Provider, ModelConfigData, error) {
+	m, ok := findModel(c.Models, tag)
 	if !ok {
-		return nil, nil
+		return nil, ModelConfigData{}, nil // not my tag
 	}
 	key, err := resolveAPIKey("openai", c.APIKeyEnv, c.APIKey)
 	if err != nil {
-		return nil, err
+		return nil, ModelConfigData{}, err
 	}
-	return rellm.NewOpenAIProvider(key, rellm.Model(name))
+	p, err := rellm.NewOpenAIProvider(key, rellm.Model(m.Name))
+	if err != nil {
+		return nil, ModelConfigData{}, err
+	}
+	return p, m, nil
 }
 
 // ── LM Studio ─────────────────────────────────────────────────────────
@@ -209,35 +208,39 @@ func (c *LMStudioConfig) LoadOrCreate(dir string) (bool, error) {
 
 // BuildForTag builds the provider when tag belongs to LM Studio.
 // LM Studio needs no api key.
-func (c *LMStudioConfig) BuildForTag(tag string) (rellm.Provider, error) {
-	name, ok := findModel(c.Models, tag)
+func (c *LMStudioConfig) BuildForTag(tag string) (rellm.Provider, ModelConfigData, error) {
+	m, ok := findModel(c.Models, tag)
 	if !ok {
-		return nil, nil // not my tag
+		return nil, ModelConfigData{}, nil // not my tag
 	}
-	return rellm.NewLMStudioProvider(rellm.Model(name), c.BaseURL, c.Port)
+	p, err := rellm.NewLMStudioProvider(rellm.Model(m.Name), c.BaseURL, c.Port)
+	if err != nil {
+		return nil, ModelConfigData{}, err
+	}
+	return p, m, nil
 }
 
 // ── templates for first run ───────────────────────────────────────────
 
 func DefaultOpenRouterConfig() OpenRouterConfig {
 	temp := 0.4
-	return OpenRouterConfig{
+	return OpenRouterConfig{apiKeyConfig{
 		APIKeyEnv: "OPENROUTER_API_KEY",
 		Models: []ModelConfigData{{
 			Tag: "or-glm53flash", Name: "z-ai/glm-5.3-flash",
 			Temperature: &temp, Reasoning: "low",
 		}},
-	}
+	}}
 }
 
 func DefaultOpenAIConfig() OpenAIConfig {
-	return OpenAIConfig{
+	return OpenAIConfig{apiKeyConfig{
 		APIKeyEnv: "OPENAI_API_KEY",
 		Models: []ModelConfigData{{
 			Tag: "oai-luna", Name: "gpt-5.6-luna", Reasoning: "low",
 			// no Temperature: OpenAI reasoning models reject the parameter
 		}},
-	}
+	}}
 }
 
 func DefaultLMStudioConfig() LMStudioConfig {
@@ -355,7 +358,7 @@ func checkTagConflicts(list []ProviderConfig) error {
 	return nil
 }
 
-// Resolved is what Build returns for one tag: everything needed to run
+// MetaProvider is what Build returns for one tag: everything needed to run
 // the agent — provider, sys prompt extension, and the model's own
 // sampling parameters.
 type MetaProvider struct {
@@ -365,32 +368,18 @@ type MetaProvider struct {
 }
 
 // Build resolves a tag to a ready provider: ask each provider in order.
-// nil,nil from an implementation means "not my tag, ask the next one".
+// A nil provider from an implementation means "not my tag, ask the next one".
 func (ps Providers) Build(tag string) (MetaProvider, error) {
 	for _, pc := range ps.list {
-		provider, err := pc.BuildForTag(tag)
+		provider, model, err := pc.BuildForTag(tag)
 		if err != nil {
 			return MetaProvider{}, err // tag was mine but building failed — stop here
 		}
 		if provider != nil {
-			modelConfig, _ := findModelByTag(ps.list, tag)
-			return MetaProvider{Provider: provider, SysPromptExt: pc.SysPromptExtension(), ModelConfig: modelConfig}, nil
+			return MetaProvider{Provider: provider, SysPromptExt: pc.SysPromptExtension(), ModelConfig: model}, nil
 		}
 	}
 	return MetaProvider{}, fmt.Errorf("unknown model tag %q — run cluesh --llm-list to see configured models", tag)
-}
-
-// findModelByTag returns the configured Model for a tag across all providers.
-// Tag uniqueness is enforced by LoadProviders, so at most one exists.
-func findModelByTag(list []ProviderConfig, tag string) (ModelConfigData, bool) {
-	for _, pc := range list {
-		for _, m := range pc.AllModels() {
-			if m.Tag == tag {
-				return m, true
-			}
-		}
-	}
-	return ModelConfigData{}, false
 }
 
 // LLMList renders every configured tag for --llm-list, grouped by provider

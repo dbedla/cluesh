@@ -49,7 +49,7 @@ type MainConfig struct {
 	DefaultModelTag         string `json:"default_model_tag"`         // required, e.g. "or-glm53flash"
 	PutCmdInClipboard       string `json:"put_cmd_in_clipboard"`      // always | never | read-only
 	Colors                  string `json:"colors"`                    // dark | light | none
-	ExecutionTimeoutMinutes int    `json:"execution_timeout_minutes"` // agent timeout, minutes
+	ExecutionTimeoutMinutes int    `json:"execution_timeout_minutes"` // agent timeout, minutes — must be >=1, no upper limit
 }
 
 // Sampling parameters (temperature, reasoning) are per model, configured in
@@ -180,6 +180,9 @@ func LoadConfig(baseDir string) (MainConfig, string, error) {
 	}
 	if cfg.DefaultModelTag == "" {
 		return MainConfig{}, "", errors.New("default_model_tag is missing in " + cfgPath + " — run cluesh --llm-list to see configured models")
+	}
+	if cfg.ExecutionTimeoutMinutes < 1 {
+		return MainConfig{}, "", fmt.Errorf("%s: execution_timeout_minutes must be >=1, got %d", cfgPath, cfg.ExecutionTimeoutMinutes)
 	}
 
 	spPath := SysPromptPath(baseDir)

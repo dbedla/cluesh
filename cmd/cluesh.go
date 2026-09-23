@@ -146,16 +146,17 @@ func waitWithProgressbar(ctx context.Context, agent *rellm.Agent, p *rellm.Promp
 		reportChannel <- agentReport{report: report, err: err}
 	}()
 
+	// progress marks go to stderr so piped stdout stays clean
 	ticker := time.NewTicker(1600 * time.Millisecond)
 	defer ticker.Stop()
-	defer fmt.Println()
+	defer fmt.Fprintln(os.Stderr)
 
 	for {
 		select {
 		case ar := <-reportChannel:
 			return ar.report, ar.err
 		case <-ticker.C:
-			fmt.Print("=")
+			fmt.Fprint(os.Stderr, "=")
 		}
 	}
 

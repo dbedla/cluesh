@@ -77,8 +77,6 @@ func NewAgent(cfg AgentConfig) (*rellm.Agent, error) {
 		WithSystemMessage(sysPrompt).
 		WithTextFormat(textFormat).
 		WithImageGenerationKeepInTheLoop().
-		// WithInspectEachRequest(InspectWithReqLog).
-		// WithInspectEachResponse(InspectWithRespLog).
 		WithUnknownConversationElementKeepInTheLoop()
 
 	if cfg.Toolset != nil {
@@ -123,21 +121,3 @@ func UsageSummary(report rellm.Report) string {
 	}
 	return line
 }
-
-// func InspectWithReqLog(req *rellm.ResponsesAPIReq) {
-// 	fmt.Println(" === REQ ===")
-// 	// b, err := json.Marshal(req)
-// 	// if err != nil {
-// 	// 	panic(err)
-// 	// }
-// 	fmt.Println(req.Model)
-// }
-
-// func InspectWithRespLog(resp *rellm.ResponsesAPIResp) {
-// 	fmt.Println(" === RESP ===")
-// 	// b, err := json.Marshal(req)
-// 	// if err != nil {
-// 	// 	panic(err)
-// 	// }
-// 	fmt.Println(resp.Model)
-// }
