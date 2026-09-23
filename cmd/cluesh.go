@@ -75,10 +75,15 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(mainCfg.ExecutionTimeoutMinutes)*time.Minute)
 	defer cancel()
 
+	effort, err := cluesh.ReasoningEffort(mainCfg.ReasoningEffort)
+	if err != nil {
+		exit(err) // unreachable: LoadConfig validated reasoning_effort
+	}
+
 	prompt, err := rellm.NewPromptBuilder().
 		WithMessage(q).
-		WithReasoning(rellm.ReasoningEffortLow).
-		WithTemperature(0.4).
+		WithReasoning(effort).
+		WithTemperature(mainCfg.Temperature).
 		Build()
 
 	if err != nil {

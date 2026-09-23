@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/dbedla/rellm/pkg/rellm"
 )
 
 // ProgramSysPrompt is the built-in sys prompt. It is written into a freshly
@@ -45,10 +47,12 @@ const ConversationFileName = "conversation.jsonl"
 
 // MainConfig is the main configuration of the program.
 type MainConfig struct {
-	DefaultModelTag        string `json:"default_model_tag"`          // required, e.g. "or-glm53flash"
-	PutCmdInClipboard      string `json:"put_cmd_in_clipboard"`       // always | never | read-only
-	Colors                 string `json:"colors"`                     // dark | light | none
-	ExecutionTimeoutMinutes int    `json:"execution_timeout_minutes"`  // agent Ask() timeout, minutes — must be >0 and <=60
+	DefaultModelTag        string  `json:"default_model_tag"`         // required, e.g. "or-glm53flash"
+	PutCmdInClipboard      string  `json:"put_cmd_in_clipboard"`      // always | never | read-only
+	Colors                 string  `json:"colors"`                    // dark | light | none
+	ExecutionTimeoutMinutes int    `json:"execution_timeout_minutes"` // agent Ask() timeout, minutes — must be >0 and <=60
+	ReasoningEffort        string  `json:"reasoning_effort"`          // none | low | medium | high
+	Temperature            float64 `json:"temperature"`               // passed through to the provider unvalidated
 }
 
 // configTemplate is what gets written on first run: the main config plus a
@@ -59,11 +63,19 @@ type configTemplate struct {
 	MainConfig
 }
 
+// DefaultReasoningEffort and DefaultTemperature are the prompt-parameter
+// values written into a freshly generated config.
+const (
+	DefaultReasoningEffort = "low"
+	DefaultTemperature     = 0.4
+)
+
 // configOptions returns the allowed values for each enum-like config field.
 func configOptions() map[string][]string {
 	return map[string][]string{
 		"put_cmd_in_clipboard":   {"always", "never", "read-only"},
 		"colors":                 {"dark", "light", "none"},
+		"reasoning_effort":       {"none", "low", "medium", "high"},
 	}
 }
 
@@ -74,6 +86,8 @@ func DefaultMainConfig() MainConfig {
 		PutCmdInClipboard:       "always",
 		Colors:                  "dark",
 		ExecutionTimeoutMinutes: 5,
+		ReasoningEffort:         DefaultReasoningEffort,
+		Temperature:             DefaultTemperature,
 	}
 }
 
@@ -177,6 +191,9 @@ func LoadConfig(baseDir string) (MainConfig, string, error) {
 	if cfg.DefaultModelTag == "" {
 		return MainConfig{}, "", errors.New("default_model_tag is missing in " + cfgPath + " — run cluesh --llm-list to see configured models")
 	}
+	if _, err := ReasoningEffort(cfg.ReasoningEffort); err != nil {
+		return MainConfig{}, "", fmt.Errorf("%s: %w", cfgPath, err)
+	}
 
 
 	spPath := SysPromptPath(baseDir)
@@ -192,4 +209,21 @@ func LoadConfig(baseDir string) (MainConfig, string, error) {
 // (--generate-template-config). Existing files are left untouched.
 func GenerateTemplateConfig(baseDir string) ([]string, error) {
 	return EnsureConfig(baseDir)
+}
+
+// ReasoningEffort maps the config string to rellm's enum. Exact match only:
+// any other value (including empty) is an error. LoadConfig calls it, so an
+// unknown or missing reasoning_effort fails config load with the exact set.
+func ReasoningEffort(s string) (rellm.ReasoningEffort, error) {
+	switch s {
+	case "none":
+		return rellm.ReasoningEffortNone, nil
+	case "low":
+		return rellm.ReasoningEffortLow, nil
+	case "medium":
+		return rellm.ReasoningEffortMedium, nil
+	case "high":
+		return rellm.ReasoningEffortHigh, nil
+	}
+	return "", fmt.Errorf("reasoning_effort must be one of none|low|medium|high, got %q", s)
 }
