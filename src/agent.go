@@ -4,7 +4,6 @@ package cluesh
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/dbedla/rellm/pkg/rellm"
@@ -35,14 +34,15 @@ type Argument struct {
 // DefaultMaxAgentSteps caps the tool-calling loop when a toolset is injected.
 const DefaultMaxAgentSteps = 5
 
-// AgentConfig carries everything needed to build the agent. Conversation and
-// Toolset may be nil; MaxSteps and SysPrompt fall back to defaults when zero.
+// AgentConfig carries everything needed to build the agent. Provider and
+// Conversation are required; Toolset may be nil; MaxSteps falls back to
+// DefaultMaxAgentSteps when zero, an empty SysPrompt to ProgramSysPrompt.
 type AgentConfig struct {
 	Provider     rellm.Provider
-	Conversation rellm.Conversation // nil → new in-memory conversation
+	Conversation rellm.Conversation // required
 	Toolset      rellm.Toolset      // nil → no tools
 	MaxSteps     uint64             // zero → DefaultMaxAgentSteps
-	SysPrompt    string             // empty → defaultSysPrompt (+ embedded schema)
+	SysPrompt    string             // empty → ProgramSysPrompt
 }
 
 // CommandTextFormat returns the JSON-schema text format generated from Command.
@@ -62,7 +62,11 @@ func NewAgent(cfg AgentConfig) (*rellm.Agent, error) {
 
 	steps := cfg.MaxSteps
 	if steps == 0 {
-		return nil, errors.New("no agent steps defined")
+		steps = DefaultMaxAgentSteps
+	}
+	sysPrompt := cfg.SysPrompt
+	if sysPrompt == "" {
+		sysPrompt = ProgramSysPrompt
 	}
 
 	builder := rellm.NewAgentBuilder().
@@ -70,7 +74,7 @@ func NewAgent(cfg AgentConfig) (*rellm.Agent, error) {
 		WithProvider(cfg.Provider).
 		WithMaxAgentSteps(steps).
 		WithConversation(cfg.Conversation).
-		WithSystemMessage(cfg.SysPrompt).
+		WithSystemMessage(sysPrompt).
 		WithTextFormat(textFormat).
 		WithImageGenerationKeepInTheLoop().
 		// WithInspectEachRequest(InspectWithReqLog).

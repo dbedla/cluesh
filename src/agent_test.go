@@ -6,6 +6,7 @@ import (
 
 	"github.com/dbedla/rellm/pkg/rellm"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUsageSummary(t *testing.T) {
@@ -28,4 +29,15 @@ func TestUsageSummary(t *testing.T) {
 
 	// no stats → empty line, nothing printed
 	assert.Equal(t, "", UsageSummary(rellm.Report{}))
+}
+
+func TestNewAgentDefaults(t *testing.T) {
+	// LM Studio builds offline; zero MaxSteps and empty SysPrompt fall back
+	// to DefaultMaxAgentSteps / ProgramSysPrompt instead of erroring.
+	p, err := rellm.NewLMStudioProvider(rellm.Model("m"), "http://127.0.0.1", "1234")
+	require.NoError(t, err)
+
+	agent, err := NewAgent(AgentConfig{Provider: p, Conversation: rellm.NewInMemoryConversation()})
+	require.NoError(t, err)
+	require.NotNil(t, agent)
 }
