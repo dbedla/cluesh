@@ -75,12 +75,20 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(mainCfg.ExecutionTimeoutMinutes)*time.Minute)
 	defer cancel()
 
-	report, err := agent.Ask(ctx, q)
+	prompt, err := rellm.NewPromptBuilder().
+		WithMessage(q).
+		WithReasoning(rellm.ReasoningEffortLow).
+		WithTemperature(0.4).
+		Build()
+
 	if err != nil {
 		exit(err)
 	}
 
-	fmt.Printf("raw: %s\n", report.Message)
+	report, err := waitWithProgressbar(ctx, agent, prompt)
+	if err != nil {
+		exit(err)
+	}
 
 	cmd, err := cluesh.ParseAgentResult(report)
 	if err != nil {
@@ -94,4 +102,38 @@ func main() {
 func exit(err error) {
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
+}
+
+func waitWithProgressbar(ctx context.Context, agent *rellm.Agent, p *rellm.Prompt) (rellm.Report, error) {
+
+	reportChannel := make(chan agentReport)
+
+	fn := func() {
+		report, err := agent.Execute(ctx, p)
+		ar := agentReport{
+			report: report,
+			err:    err,
+		}
+		reportChannel <- ar
+	}
+	go fn()
+
+	ticker := time.NewTicker(1600 * time.Millisecond)
+	defer ticker.Stop()
+	defer fmt.Println()
+
+	for {
+		select {
+		case ar := <-reportChannel:
+			return ar.report, ar.err
+		case <-ticker.C:
+			fmt.Print("=")
+		}
+	}
+
+}
+
+type agentReport struct {
+	report rellm.Report
+	err    error
 }

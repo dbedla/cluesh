@@ -73,8 +73,8 @@ func NewAgent(cfg AgentConfig) (*rellm.Agent, error) {
 		WithSystemMessage(cfg.SysPrompt).
 		WithTextFormat(textFormat).
 		WithImageGenerationKeepInTheLoop().
-		WithInspectEachRequest(InspectWithReqLog).
-		WithInspectEachResponse(InspectWithRespLog).
+		// WithInspectEachRequest(InspectWithReqLog).
+		// WithInspectEachResponse(InspectWithRespLog).
 		WithUnknownConversationElementKeepInTheLoop()
 
 	if cfg.Toolset != nil {
@@ -93,20 +93,20 @@ func ParseAgentResult(report rellm.Report) (Command, error) {
 	return cmd, nil
 }
 
-func InspectWithReqLog(req *rellm.ResponsesAPIReq) {
-	fmt.Println(" === REQ ===")
-	// b, err := json.Marshal(req)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	fmt.Println(req.Model)
-}
+// func InspectWithReqLog(req *rellm.ResponsesAPIReq) {
+// 	fmt.Println(" === REQ ===")
+// 	// b, err := json.Marshal(req)
+// 	// if err != nil {
+// 	// 	panic(err)
+// 	// }
+// 	fmt.Println(req.Model)
+// }
 
-func InspectWithRespLog(resp *rellm.ResponsesAPIResp) {
-	fmt.Println(" === RESP ===")
-	// b, err := json.Marshal(req)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	fmt.Println(resp.Model)
-}
+// func InspectWithRespLog(resp *rellm.ResponsesAPIResp) {
+// 	fmt.Println(" === RESP ===")
+// 	// b, err := json.Marshal(req)
+// 	// if err != nil {
+// 	// 	panic(err)
+// 	// }
+// 	fmt.Println(resp.Model)
+// }
