@@ -8,9 +8,9 @@ import (
 )
 
 // Print renders a Command. ALL layout (newlines, indentation) lives here —
-// the Consol implementations are pure writers: same bytes, only colored or
+// the Console implementations are pure writers: same bytes, only colored or
 // not. That way no mode can disagree about layout.
-func Print(format Consol, c Command) {
+func Print(format Console, c Command) {
 	format.FinalCommand("\n%s\n\n", c.FinalCommand)
 	for _, sc := range c.SubCommands {
 		format.SubCommand("\t%s\n", sc.Command)
@@ -26,8 +26,8 @@ func Print(format Consol, c Command) {
 	fmt.Println()
 }
 
-// Consol is the output writer contract: format + args, no newline handling.
-type Consol interface {
+// Console is the output writer contract: format + args, no newline handling.
+type Console interface {
 	FinalCommand(format string, a ...interface{})
 	SubCommand(format string, a ...interface{})
 	Argument(format string, a ...interface{})
@@ -45,7 +45,7 @@ func colored(c *color.Color) func(format string, a ...interface{}) {
 // DarkMode — colors tuned for dark terminals.
 type DarkMode struct{}
 
-var _ Consol = &DarkMode{}
+var _ Console = &DarkMode{}
 
 func (_ DarkMode) FinalCommand(format string, a ...interface{}) {
 	colored(color.New(color.FgHiYellow, color.Bold))(format, a...)
@@ -66,7 +66,7 @@ func (_ DarkMode) Notes(format string, a ...interface{}) {
 // LightMode — colors tuned for light terminals.
 type LightMode struct{}
 
-var _ Consol = &LightMode{}
+var _ Console = &LightMode{}
 
 func (_ LightMode) FinalCommand(format string, a ...interface{}) {
 	colored(color.New(color.FgBlue, color.Bold))(format, a...)
@@ -87,18 +87,18 @@ func (_ LightMode) Notes(format string, a ...interface{}) {
 // NoMode — plain text, byte-identical layout to the colored modes.
 type NoMode struct{}
 
-var _ Consol = &NoMode{}
+var _ Console = &NoMode{}
 
-func (_ NoMode) FinalCommand(format string, a ...interface{})  { fmt.Printf(format, a...) }
+func (_ NoMode) FinalCommand(format string, a ...interface{})        { fmt.Printf(format, a...) }
 func (_ NoMode) SubCommand(format string, a ...interface{})          { fmt.Printf(format, a...) }
 func (_ NoMode) Argument(format string, a ...interface{})            { fmt.Printf(format, a...) }
 func (_ NoMode) ArgumentDescription(format string, a ...interface{}) { fmt.Printf(format, a...) }
 func (_ NoMode) Notes(format string, a ...interface{})               { fmt.Printf(format, a...) }
 
-// ConsolByName maps the colors config value (dark | light | none) to a
-// Consol implementation. NO_COLOR (https://no-color.org) wins over config.
+// ConsoleByName maps the colors config value (dark | light | none) to a
+// Console implementation. NO_COLOR (https://no-color.org) wins over config.
 // Unknown values fall back to no color instead of erroring.
-func ConsolByName(name string) Consol {
+func ConsoleByName(name string) Console {
 	if os.Getenv("NO_COLOR") != "" {
 		return &NoMode{}
 	}

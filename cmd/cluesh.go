@@ -95,10 +95,10 @@ func main() {
 		exit(err)
 	}
 
-	cluesh.Print(cluesh.ConsolByName(mainCfg.Colors), cmd)
+	cluesh.Print(cluesh.ConsoleByName(mainCfg.Colors), cmd)
 	printUsage(report)
 
-	if cluesh.ShouldCopy(mainCfg.PutCmdInClipboard, cmd.RedOnly) {
+	if cluesh.ShouldCopy(mainCfg.PutCmdInClipboard, cmd.ReadOnly) {
 		if err := cluesh.CopyToClipboard(cmd.FinalCommand); err != nil {
 			fmt.Fprintln(os.Stderr, "clipboard:", err)
 		} else {
@@ -118,7 +118,7 @@ func buildPrompt(q string, m cluesh.ModelConfigData) (*rellm.Prompt, error) {
 	if m.Reasoning != "" {
 		effort, err := cluesh.ReasoningEffort(m.Reasoning)
 		if err != nil {
-			exit(err) // unreachable: LoadProviders validated reasoning
+			return nil, err
 		}
 		promptBuilder = promptBuilder.WithReasoning(effort)
 	}
@@ -141,27 +141,22 @@ func printUsage(report rellm.Report) {
 func waitWithProgressbar(ctx context.Context, agent *rellm.Agent, p *rellm.Prompt) (rellm.Report, error) {
 
 	reportChannel := make(chan agentReport)
-
-	fn := func() {
+	go func() {
 		report, err := agent.Execute(ctx, p)
-		ar := agentReport{
-			report: report,
-			err:    err,
-		}
-		reportChannel <- ar
-	}
-	go fn()
+		reportChannel <- agentReport{report: report, err: err}
+	}()
 
+	// progress marks go to stderr so piped stdout stays clean
 	ticker := time.NewTicker(1600 * time.Millisecond)
 	defer ticker.Stop()
-	defer fmt.Println()
+	defer fmt.Fprintln(os.Stderr)
 
 	for {
 		select {
 		case ar := <-reportChannel:
 			return ar.report, ar.err
 		case <-ticker.C:
-			fmt.Print("=")
+			fmt.Fprint(os.Stderr, "=")
 		}
 	}
 

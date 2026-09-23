@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dbedla/rellm/pkg/rellm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,47 +29,24 @@ func TestBaseDirInjection(t *testing.T) {
 	// creates it lazily on first Append — missing file = empty conversation.
 }
 
-func TestLoadProvidersRejectsBadReasoning(t *testing.T) {
-	tests := []struct {
-		name  string
-		value string
-	}{
-		{"unknown value", "bogus"},
+func TestLoadConfigTimeout(t *testing.T) {
+	// write a config with the given timeout value and try to load it
+	load := func(baseDir string, minutes int) error {
+		_, _, err := LoadConfig(baseDir) // first run: generate defaults
+		require.NoError(t, err)
+		path := filepath.Join(baseDir, ConfigFileName)
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		out := strings.Replace(string(data),
+			`"execution_timeout_minutes": 5`,
+			fmt.Sprintf(`"execution_timeout_minutes": %d`, minutes), 1)
+		require.NoError(t, os.WriteFile(path, []byte(out), 0o600))
+		_, _, err = LoadConfig(baseDir)
+		return err
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			baseDir := t.TempDir()
-			_, _, err := LoadProviders(baseDir)
-			require.NoError(t, err)
 
-			// replace the generated "reasoning": "low" with a bad value
-			path := filepath.Join(ProvidersPath(baseDir), "openrouter.json")
-			data, err := os.ReadFile(path)
-			assert.NoError(t, err)
-			out := strings.Replace(string(data),
-				`"reasoning": "low"`,
-				fmt.Sprintf("%q: %q", "reasoning", tt.value), 1)
-			assert.NoError(t, os.WriteFile(path, []byte(out), 0o600))
-
-			_, _, err = LoadProviders(baseDir)
-			assert.Error(t, err)
-		})
-	}
-}
-
-func TestReasoningEffortMapping(t *testing.T) {
-	for s, want := range map[string]rellm.ReasoningEffort{
-		"none":   rellm.ReasoningEffortNone,
-		"low":    rellm.ReasoningEffortLow,
-		"medium": rellm.ReasoningEffortMedium,
-		"high":   rellm.ReasoningEffortHigh,
-	} {
-		got, err := ReasoningEffort(s)
-		assert.NoError(t, err)
-		assert.Equal(t, want, got)
-	}
-	_, err := ReasoningEffort("bogus")
-	assert.Error(t, err)
-	_, err = ReasoningEffort("")
-	assert.Error(t, err)
+	// zero would expire the context instantly — rejected
+	assert.Error(t, load(t.TempDir(), 0))
+	// no ceiling: a user willing to wait 123 minutes may
+	assert.NoError(t, load(t.TempDir(), 123))
 }

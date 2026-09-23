@@ -4,10 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
-
-	"github.com/dbedla/rellm/pkg/rellm"
 )
 
 // ProgramSysPrompt is the built-in sys prompt. It is written into a freshly
@@ -47,11 +46,12 @@ const ConversationFileName = "conversation.jsonl"
 
 // MainConfig is the main configuration of the program.
 type MainConfig struct {
-	DefaultModelTag        string  `json:"default_model_tag"`         // required, e.g. "or-glm53flash"
-	PutCmdInClipboard      string  `json:"put_cmd_in_clipboard"`      // always | never | read-only
-	Colors                 string  `json:"colors"`                    // dark | light | none
-	ExecutionTimeoutMinutes int    `json:"execution_timeout_minutes"` // agent Ask() timeout, minutes — must be >0 and <=60
+	DefaultModelTag         string `json:"default_model_tag"`         // required, e.g. "or-glm53flash"
+	PutCmdInClipboard       string `json:"put_cmd_in_clipboard"`      // always | never | read-only
+	Colors                  string `json:"colors"`                    // dark | light | none
+	ExecutionTimeoutMinutes int    `json:"execution_timeout_minutes"` // agent timeout, minutes — must be >=1, no upper limit
 }
+
 // Sampling parameters (temperature, reasoning) are per model, configured in
 // the provider files — see Model.
 
@@ -66,8 +66,8 @@ type configTemplate struct {
 // configOptions returns the allowed values for each enum-like config field.
 func configOptions() map[string][]string {
 	return map[string][]string{
-		"put_cmd_in_clipboard":   {"always", "never", "read-only"},
-		"colors":                 {"dark", "light", "none"},
+		"put_cmd_in_clipboard": {"always", "never", "read-only"},
+		"colors":               {"dark", "light", "none"},
 	}
 }
 
@@ -114,7 +114,7 @@ func EnsureConfig(baseDir string) (created []string, err error) {
 	}
 
 	cfgPath := ConfigPath(baseDir)
-	if _, statErr := os.Stat(cfgPath); os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(cfgPath); errors.Is(statErr, fs.ErrNotExist) {
 		if wErr := writeJSON(cfgPath, configTemplate{Options: configOptions(), MainConfig: DefaultMainConfig()}); wErr != nil {
 			return nil, wErr
 		}
@@ -124,7 +124,7 @@ func EnsureConfig(baseDir string) (created []string, err error) {
 	}
 
 	spPath := SysPromptPath(baseDir)
-	if _, statErr := os.Stat(spPath); os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(spPath); errors.Is(statErr, fs.ErrNotExist) {
 		if wErr := os.WriteFile(spPath, []byte(ProgramSysPrompt), 0o600); wErr != nil {
 			return nil, fmt.Errorf("cannot write %s: %w", spPath, wErr)
 		}
@@ -181,7 +181,9 @@ func LoadConfig(baseDir string) (MainConfig, string, error) {
 	if cfg.DefaultModelTag == "" {
 		return MainConfig{}, "", errors.New("default_model_tag is missing in " + cfgPath + " — run cluesh --llm-list to see configured models")
 	}
-
+	if cfg.ExecutionTimeoutMinutes < 1 {
+		return MainConfig{}, "", fmt.Errorf("%s: execution_timeout_minutes must be >=1, got %d", cfgPath, cfg.ExecutionTimeoutMinutes)
+	}
 
 	spPath := SysPromptPath(baseDir)
 	sysPrompt, err := os.ReadFile(spPath)
@@ -190,27 +192,4 @@ func LoadConfig(baseDir string) (MainConfig, string, error) {
 	}
 
 	return cfg, string(sysPrompt), nil
-}
-
-// GenerateTemplateConfig regenerates missing default config files
-// (--generate-template-config). Existing files are left untouched.
-func GenerateTemplateConfig(baseDir string) ([]string, error) {
-	return EnsureConfig(baseDir)
-}
-
-// ReasoningEffort maps the config string to rellm's enum. Exact match only:
-// any other value (including empty) is an error. LoadConfig calls it, so an
-// unknown or missing reasoning_effort fails config load with the exact set.
-func ReasoningEffort(s string) (rellm.ReasoningEffort, error) {
-	switch s {
-	case "none":
-		return rellm.ReasoningEffortNone, nil
-	case "low":
-		return rellm.ReasoningEffortLow, nil
-	case "medium":
-		return rellm.ReasoningEffortMedium, nil
-	case "high":
-		return rellm.ReasoningEffortHigh, nil
-	}
-	return "", fmt.Errorf("reasoning_effort must be one of none|low|medium|high, got %q", s)
 }

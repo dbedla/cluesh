@@ -10,13 +10,13 @@ import (
 
 // ShouldCopy is the clipboard gate for put_cmd_in_clipboard. The mode is
 // pre-validated by LoadConfig; read-only copies only commands that do not
-// modify any file (RedOnly).
-func ShouldCopy(mode string, redOnly bool) bool {
+// modify any file (ReadOnly).
+func ShouldCopy(mode string, readOnly bool) bool {
 	switch mode {
 	case "always":
 		return true
 	case "read-only":
-		return redOnly
+		return readOnly
 	}
 	return false // never
 }

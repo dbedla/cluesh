@@ -8,10 +8,10 @@ import (
 
 func TestShouldCopy(t *testing.T) {
 	tests := []struct {
-		name    string
-		mode    string
-		redOnly bool
-		want    bool
+		name     string
+		mode     string
+		readOnly bool
+		want     bool
 	}{
 		{"always red-only command", "always", true, true},
 		{"always modifying command", "always", false, true},
@@ -21,7 +21,7 @@ func TestShouldCopy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, ShouldCopy(tt.mode, tt.redOnly))
+			assert.Equal(t, tt.want, ShouldCopy(tt.mode, tt.readOnly))
 		})
 	}
 }

@@ -4,7 +4,6 @@ package cluesh
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/dbedla/rellm/pkg/rellm"
@@ -17,7 +16,7 @@ type Command struct {
 	FinalCommand string       `json:"final_command" jsonschema:"description=The final bash command, oneline, copy-paste ready"`
 	SubCommands  []SubCommand `json:"sub_commands"  jsonschema:"description=EVERY command of the pipeline, in order, including the first, each with ALL its arguments explained, never empty"`
 	Notes        string       `json:"notes"        jsonschema:"description=Short notes, e.g. caveats or variants, empty if none"`
-	RedOnly      bool         `json:"read_only"      jsonschema:"description=true when the command does not change any file, false when it modifies anything"`
+	ReadOnly     bool         `json:"read_only"      jsonschema:"description=true when the command does not change any file, false when it modifies anything"`
 }
 
 // SubCommand is one command within the pipeline.
@@ -35,14 +34,15 @@ type Argument struct {
 // DefaultMaxAgentSteps caps the tool-calling loop when a toolset is injected.
 const DefaultMaxAgentSteps = 5
 
-// AgentConfig carries everything needed to build the agent. Conversation and
-// Toolset may be nil; MaxSteps and SysPrompt fall back to defaults when zero.
+// AgentConfig carries everything needed to build the agent. Provider and
+// Conversation are required; Toolset may be nil; MaxSteps falls back to
+// DefaultMaxAgentSteps when zero, an empty SysPrompt to ProgramSysPrompt.
 type AgentConfig struct {
 	Provider     rellm.Provider
-	Conversation rellm.Conversation // nil → new in-memory conversation
+	Conversation rellm.Conversation // required
 	Toolset      rellm.Toolset      // nil → no tools
 	MaxSteps     uint64             // zero → DefaultMaxAgentSteps
-	SysPrompt    string             // empty → defaultSysPrompt (+ embedded schema)
+	SysPrompt    string             // empty → ProgramSysPrompt
 }
 
 // CommandTextFormat returns the JSON-schema text format generated from Command.
@@ -62,7 +62,11 @@ func NewAgent(cfg AgentConfig) (*rellm.Agent, error) {
 
 	steps := cfg.MaxSteps
 	if steps == 0 {
-		return nil, errors.New("no agent steps defined")
+		steps = DefaultMaxAgentSteps
+	}
+	sysPrompt := cfg.SysPrompt
+	if sysPrompt == "" {
+		sysPrompt = ProgramSysPrompt
 	}
 
 	builder := rellm.NewAgentBuilder().
@@ -70,11 +74,9 @@ func NewAgent(cfg AgentConfig) (*rellm.Agent, error) {
 		WithProvider(cfg.Provider).
 		WithMaxAgentSteps(steps).
 		WithConversation(cfg.Conversation).
-		WithSystemMessage(cfg.SysPrompt).
+		WithSystemMessage(sysPrompt).
 		WithTextFormat(textFormat).
 		WithImageGenerationKeepInTheLoop().
-		// WithInspectEachRequest(InspectWithReqLog).
-		// WithInspectEachResponse(InspectWithRespLog).
 		WithUnknownConversationElementKeepInTheLoop()
 
 	if cfg.Toolset != nil {
@@ -119,21 +121,3 @@ func UsageSummary(report rellm.Report) string {
 	}
 	return line
 }
-
-// func InspectWithReqLog(req *rellm.ResponsesAPIReq) {
-// 	fmt.Println(" === REQ ===")
-// 	// b, err := json.Marshal(req)
-// 	// if err != nil {
-// 	// 	panic(err)
-// 	// }
-// 	fmt.Println(req.Model)
-// }
-
-// func InspectWithRespLog(resp *rellm.ResponsesAPIResp) {
-// 	fmt.Println(" === RESP ===")
-// 	// b, err := json.Marshal(req)
-// 	// if err != nil {
-// 	// 	panic(err)
-// 	// }
-// 	fmt.Println(resp.Model)
-// }
