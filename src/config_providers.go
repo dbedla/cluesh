@@ -331,8 +331,10 @@ func LoadProviders(baseDir string) (Providers, []string, error) {
 func checkModelSampling(list []ProviderConfig) error {
 	for _, pc := range list {
 		for _, m := range pc.AllModels() {
-			if _, err := ReasoningEffort(m.Reasoning); err != nil && m.Reasoning != "" {
-				return fmt.Errorf("%s: model %q: %w", pc.FileName(), m.Tag, err)
+			if m.Reasoning != "" {
+				if _, err := ReasoningEffort(m.Reasoning); err != nil {
+					return fmt.Errorf("%s: model %q: %w", pc.FileName(), m.Tag, err)
+				}
 			}
 		}
 	}
