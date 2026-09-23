@@ -190,5 +190,3 @@ func LoadConfig(baseDir string) (MainConfig, string, error) {
 
 	return cfg, string(sysPrompt), nil
 }
-
-

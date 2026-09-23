@@ -24,4 +24,3 @@ func TestBaseDirInjection(t *testing.T) {
 	// conversation.jsonl is deliberately absent: rellm's FilesystemConversation
 	// creates it lazily on first Append — missing file = empty conversation.
 }
-

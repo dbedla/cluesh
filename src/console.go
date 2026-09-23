@@ -89,7 +89,7 @@ type NoMode struct{}
 
 var _ Console = &NoMode{}
 
-func (_ NoMode) FinalCommand(format string, a ...interface{})  { fmt.Printf(format, a...) }
+func (_ NoMode) FinalCommand(format string, a ...interface{})        { fmt.Printf(format, a...) }
 func (_ NoMode) SubCommand(format string, a ...interface{})          { fmt.Printf(format, a...) }
 func (_ NoMode) Argument(format string, a ...interface{})            { fmt.Printf(format, a...) }
 func (_ NoMode) ArgumentDescription(format string, a ...interface{}) { fmt.Printf(format, a...) }

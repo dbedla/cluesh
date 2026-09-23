@@ -8,10 +8,10 @@ import (
 
 func TestShouldCopy(t *testing.T) {
 	tests := []struct {
-		name    string
-		mode    string
+		name     string
+		mode     string
 		readOnly bool
-		want    bool
+		want     bool
 	}{
 		{"always red-only command", "always", true, true},
 		{"always modifying command", "always", false, true},
