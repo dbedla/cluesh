@@ -71,14 +71,32 @@ or put the key inline in `providers/openrouter.json`:
 {
   "api_key": "sk-or-...",
   "models": [
-    { "tag": "or-glm53flash", "name": "z-ai/glm-5.3-flash" }
+    {
+      "tag": "or-glm53flash",
+      "name": "z-ai/glm-5.3-flash",
+      "temperature": 0.4,
+      "reasoning": "low"
+    }
   ]
 }
 ```
 
+`temperature` and `reasoning` (`none`|`low`|`medium`|`high`) are optional per
+model; unset fields are not sent at all, since some models and providers reject
+them (e.g. OpenAI reasoning models reject `temperature` for model `gpt-5.6-luna`).
+
 Each model gets a short `tag`; `default_model_tag` in `config.json` selects the
 one used when no flag overrides it. Add more models per provider file
 (`openai.json`, `lmstudio.json` — local models need no key).
+
+Main settings in `config.json`:
+
+| field                     | values / meaning                              | default |
+|---------------------------|-----------------------------------------------|---------|
+| `default_model_tag`       | model tag used when `--llm` is not given      | `or-glm53flash` |
+| `put_cmd_in_clipboard`    | `always` \| `never` \| `read-only`            | `always` |
+| `colors`                  | `dark` \| `light` \| `none` (`NO_COLOR` wins) | `dark` |
+| `execution_timeout_minutes` | agent timeout per run, 1–60                 | `5` |
 
 ## Usage
 
@@ -112,7 +130,7 @@ Config location: /home/you/.cluesh
   config.json   main settings (default model, clipboard mode, colors, timeout)
   sysprompt.md   system prompt
   providers/   one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
-  conversation.jsonl   persisted conversation (created on first run)
+  conversation.jsonl   persisted conversation (created on first ask)
 
 API key setup (per provider file, e.g. providers/openrouter.json):
   "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)
@@ -128,7 +146,7 @@ matching `default_model_tag` is marked:
 openrouter.json
 	or-glm53flash	z-ai/glm-5.3-flash	(default)
 openai.json
-	oai-mini	gpt-4o-mini
+	oai-luna	gpt-5.6-luna
 lmstudio.json
 	lms-gemma	google/gemma-4-26b-a4b
 ```

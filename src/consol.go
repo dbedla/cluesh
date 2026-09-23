@@ -2,6 +2,7 @@ package cluesh
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/fatih/color"
 )
@@ -95,14 +96,18 @@ func (_ NoMode) ArgumentDescription(format string, a ...interface{}) { fmt.Print
 func (_ NoMode) Notes(format string, a ...interface{})               { fmt.Printf(format, a...) }
 
 // ConsolByName maps the colors config value (dark | light | none) to a
-// Consol implementation. Config validation guarantees a valid value.
+// Consol implementation. NO_COLOR (https://no-color.org) wins over config.
+// Unknown values fall back to no color instead of erroring.
 func ConsolByName(name string) Consol {
+	if os.Getenv("NO_COLOR") != "" {
+		return &NoMode{}
+	}
 	switch name {
 	case "dark":
 		return &DarkMode{}
 	case "light":
 		return &LightMode{}
-	default: // "none" and NO_COLOR-friendly fallback
+	default: // "none"
 		return &NoMode{}
 	}
 }
