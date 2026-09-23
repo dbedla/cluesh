@@ -101,6 +101,14 @@ func main() {
 	}
 
 	cluesh.Print(cluesh.ConsolByName(mainCfg.Colors), cmd)
+
+	if cluesh.ShouldCopy(mainCfg.PutCmdInClipboard, cmd.RedOnly) {
+		if err := cluesh.CopyToClipboard(cmd.FinalCommand); err != nil {
+			fmt.Fprintln(os.Stderr, "clipboard:", err)
+		} else {
+			fmt.Println("info: command in clipboard")
+		}
+	}
 }
 
 // exit prints the error to stderr and terminates with status 1.
