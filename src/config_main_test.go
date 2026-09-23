@@ -3,11 +3,13 @@ package cluesh
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/dbedla/rellm/pkg/rellm"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBaseDirInjection(t *testing.T) {
@@ -17,8 +19,6 @@ func TestBaseDirInjection(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, cfg.DefaultModelTag)
 	assert.NotEmpty(t, sysPrompt)
-	assert.Equal(t, DefaultTemperature, cfg.Temperature)
-	assert.Equal(t, DefaultReasoningEffort, cfg.ReasoningEffort)
 
 	assert.True(t, strings.HasPrefix(ConfigPath(baseDir), baseDir), "config path outside baseDir")
 	assert.True(t, strings.HasPrefix(SysPromptPath(baseDir), baseDir), "sysprompt path outside baseDir")
@@ -30,30 +30,29 @@ func TestBaseDirInjection(t *testing.T) {
 	// creates it lazily on first Append — missing file = empty conversation.
 }
 
-func TestLoadConfigRejectsBadReasoningEffort(t *testing.T) {
+func TestLoadProvidersRejectsBadReasoning(t *testing.T) {
 	tests := []struct {
 		name  string
 		value string
 	}{
 		{"unknown value", "bogus"},
-		{"empty value", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			baseDir := t.TempDir()
-			_, _, err := LoadConfig(baseDir)
-			assert.NoError(t, err)
+			_, _, err := LoadProviders(baseDir)
+			require.NoError(t, err)
 
-			// replace the generated "reasoning_effort": "low" with a bad value
-			path := ConfigPath(baseDir)
+			// replace the generated "reasoning": "low" with a bad value
+			path := filepath.Join(ProvidersPath(baseDir), "openrouter.json")
 			data, err := os.ReadFile(path)
 			assert.NoError(t, err)
 			out := strings.Replace(string(data),
-				fmt.Sprintf("%q: %q", "reasoning_effort", DefaultReasoningEffort),
-				fmt.Sprintf("%q: %q", "reasoning_effort", tt.value), 1)
+				`"reasoning": "low"`,
+				fmt.Sprintf("%q: %q", "reasoning", tt.value), 1)
 			assert.NoError(t, os.WriteFile(path, []byte(out), 0o600))
 
-			_, _, err = LoadConfig(baseDir)
+			_, _, err = LoadProviders(baseDir)
 			assert.Error(t, err)
 		})
 	}

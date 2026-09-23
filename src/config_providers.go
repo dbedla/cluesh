@@ -15,11 +15,28 @@ import (
 // provider type: openrouter.json, openai.json, lmstudio.json.
 const ProvidersDir = "providers"
 
-// Model is one configurable model: Tag is the short user-facing label used
+// ModelConfigData is one configurable model: Tag is the short user-facing label used
 // with -llm and in default_model_tag, Name is the provider-internal model id.
-type Model struct {
-	Tag  string `json:"tag"`
-	Name string `json:"name"`
+// Sampling parameters are per model, because support is a property of the
+// model, not the provider: an unset field means the parameter is not sent
+// (e.g. OpenAI reasoning models reject temperature).
+type ModelConfigData struct {
+	Tag         string   `json:"tag"`
+	Name        string   `json:"name"`
+	Temperature *float64 `json:"temperature,omitempty"` // unset → not sent
+	Reasoning   string   `json:"reasoning,omitempty"`   // none|low|medium|high, empty → not sent
+}
+
+// Sampling renders the model's non-default parameters for --llm-list.
+func (m ModelConfigData) Sampling() string {
+	s := ""
+	if m.Temperature != nil {
+		s += fmt.Sprintf("temp=%g ", *m.Temperature)
+	}
+	if m.Reasoning != "" {
+		s += "reasoning=" + m.Reasoning
+	}
+	return strings.TrimRight(s, " ")
 }
 
 // ProviderConfig is the contract every provider implementation fulfills.
@@ -41,7 +58,7 @@ type ProviderConfig interface {
 
 	// AllModels returns every configured model — used for tag listing and
 	// conflict detection across providers.
-	AllModels() []Model
+	AllModels() []ModelConfigData
 
 	// SysPromptExtension returns text appended to the sys prompt when this
 	// provider is in use, e.g. local models that ignore text.format get the
@@ -50,7 +67,7 @@ type ProviderConfig interface {
 }
 
 // findModel returns the model name for a tag within one provider's list.
-func findModel(models []Model, tag string) (string, bool) {
+func findModel(models []ModelConfigData, tag string) (string, bool) {
 	for _, m := range models {
 		if m.Tag == tag {
 			return m.Name, true
@@ -63,9 +80,9 @@ func findModel(models []Model, tag string) (string, bool) {
 
 // OpenRouterConfig is the content of providers/openrouter.json.
 type OpenRouterConfig struct {
-	APIKeyEnv string  `json:"api_key_env"` // read key from this environment variable
-	APIKey    string  `json:"api_key"`     // inline key (least safe)
-	Models    []Model `json:"models"`
+	APIKeyEnv string            `json:"api_key_env"` // read key from this environment variable
+	APIKey    string            `json:"api_key"`     // inline key (least safe)
+	Models    []ModelConfigData `json:"models"`
 	// PromptExtension is appended to the sys prompt when this provider is
 	// used.
 	PromptExtension string `json:"sys_prompt_extension,omitempty"`
@@ -73,8 +90,8 @@ type OpenRouterConfig struct {
 
 var _ ProviderConfig = (*OpenRouterConfig)(nil)
 
-func (c *OpenRouterConfig) FileName() string   { return "openrouter.json" }
-func (c *OpenRouterConfig) AllModels() []Model { return c.Models }
+func (c *OpenRouterConfig) FileName() string             { return "openrouter.json" }
+func (c *OpenRouterConfig) AllModels() []ModelConfigData { return c.Models }
 
 // SysPromptExtension: whatever sys_prompt_extension holds in the config
 // (empty by default)
@@ -103,9 +120,9 @@ func (c *OpenRouterConfig) BuildForTag(tag string) (rellm.Provider, error) {
 
 // OpenAIConfig is the content of providers/openai.json.
 type OpenAIConfig struct {
-	APIKeyEnv string  `json:"api_key_env"`
-	APIKey    string  `json:"api_key"`
-	Models    []Model `json:"models"`
+	APIKeyEnv string            `json:"api_key_env"`
+	APIKey    string            `json:"api_key"`
+	Models    []ModelConfigData `json:"models"`
 	// PromptExtension is appended to the sys prompt when this provider is
 	// used. Empty by default
 	PromptExtension string `json:"sys_prompt_extension,omitempty"`
@@ -113,8 +130,8 @@ type OpenAIConfig struct {
 
 var _ ProviderConfig = (*OpenAIConfig)(nil)
 
-func (c *OpenAIConfig) FileName() string   { return "openai.json" }
-func (c *OpenAIConfig) AllModels() []Model { return c.Models }
+func (c *OpenAIConfig) FileName() string             { return "openai.json" }
+func (c *OpenAIConfig) AllModels() []ModelConfigData { return c.Models }
 
 // SysPromptExtension: whatever sys_prompt_extension holds in the config
 // (empty by default).
@@ -143,9 +160,9 @@ func (c *OpenAIConfig) BuildForTag(tag string) (rellm.Provider, error) {
 
 // LMStudioConfig is the content of providers/lmstudio.json.
 type LMStudioConfig struct {
-	BaseURL string  `json:"base_url"` // e.g. http://127.0.0.1
-	Port    string  `json:"port"`     // e.g. 1234
-	Models  []Model `json:"models"`
+	BaseURL string            `json:"base_url"` // e.g. http://127.0.0.1
+	Port    string            `json:"port"`     // e.g. 1234
+	Models  []ModelConfigData `json:"models"`
 	// PromptExtension is appended to the sys prompt when this provider is
 	// used. LM Studio does not reliably pass text.format to local models,
 	// so the generated default contains the JSON schema; edit freely.
@@ -154,8 +171,8 @@ type LMStudioConfig struct {
 
 var _ ProviderConfig = (*LMStudioConfig)(nil)
 
-func (c *LMStudioConfig) FileName() string   { return "lmstudio.json" }
-func (c *LMStudioConfig) AllModels() []Model { return c.Models }
+func (c *LMStudioConfig) FileName() string             { return "lmstudio.json" }
+func (c *LMStudioConfig) AllModels() []ModelConfigData { return c.Models }
 
 // SysPromptExtension returns the text appended to the sys prompt when this
 // provider is in use — straight from the sys_prompt_text config field, so
@@ -183,16 +200,23 @@ func (c *LMStudioConfig) BuildForTag(tag string) (rellm.Provider, error) {
 // ── templates for first run ───────────────────────────────────────────
 
 func DefaultOpenRouterConfig() OpenRouterConfig {
+	temp := 0.4
 	return OpenRouterConfig{
 		APIKeyEnv: "OPENROUTER_API_KEY",
-		Models:    []Model{{Tag: "or-glm53flash", Name: "z-ai/glm-5.3-flash"}},
+		Models: []ModelConfigData{{
+			Tag: "or-glm53flash", Name: "z-ai/glm-5.3-flash",
+			Temperature: &temp, Reasoning: "low",
+		}},
 	}
 }
 
 func DefaultOpenAIConfig() OpenAIConfig {
 	return OpenAIConfig{
 		APIKeyEnv: "OPENAI_API_KEY",
-		Models:    []Model{{Tag: "oai-luna", Name: "gpt-5.6-luna"}},
+		Models: []ModelConfigData{{
+			Tag: "oai-luna", Name: "gpt-5.6-luna", Reasoning: "low",
+			// no Temperature: OpenAI reasoning models reject the parameter
+		}},
 	}
 }
 
@@ -200,7 +224,7 @@ func DefaultLMStudioConfig() LMStudioConfig {
 	return LMStudioConfig{
 		BaseURL:         "http://127.0.0.1",
 		Port:            "1234",
-		Models:          []Model{{Tag: "lms-gemma", Name: "google/gemma-4-26b-a4b"}},
+		Models:          []ModelConfigData{{Tag: "lms-gemma", Name: "google/gemma-4-26b-a4b"}},
 		PromptExtension: lmsSysPromptExtension(),
 	}
 }
@@ -276,7 +300,23 @@ func LoadProviders(baseDir string) (Providers, []string, error) {
 	if err := checkTagConflicts(ps.list); err != nil {
 		return Providers{}, nil, err
 	}
+	if err := checkModelSampling(ps.list); err != nil {
+		return Providers{}, nil, err
+	}
 	return ps, created, nil
+}
+
+// checkModelSampling validates per-model parameters: reasoning must be an
+// exact rellm enum value (temperature is a free float, not validated).
+func checkModelSampling(list []ProviderConfig) error {
+	for _, pc := range list {
+		for _, m := range pc.AllModels() {
+			if _, err := ReasoningEffort(m.Reasoning); err != nil && m.Reasoning != "" {
+				return fmt.Errorf("%s: model %q: %w", pc.FileName(), m.Tag, err)
+			}
+		}
+	}
+	return nil
 }
 
 // checkTagConflicts: every tag must be unique across all providers.
@@ -293,20 +333,42 @@ func checkTagConflicts(list []ProviderConfig) error {
 	return nil
 }
 
+// Resolved is what Build returns for one tag: everything needed to run
+// the agent — provider, sys prompt extension, and the model's own
+// sampling parameters.
+type MetaProvider struct {
+	Provider     rellm.Provider
+	SysPromptExt string
+	ModelConfig  ModelConfigData
+}
+
 // Build resolves a tag to a ready provider: ask each provider in order.
 // nil,nil from an implementation means "not my tag, ask the next one".
-// The returned string is the provider's sys prompt extension ("" for none).
-func (ps Providers) Build(tag string) (rellm.Provider, string, error) {
+func (ps Providers) Build(tag string) (MetaProvider, error) {
 	for _, pc := range ps.list {
 		provider, err := pc.BuildForTag(tag)
 		if err != nil {
-			return nil, "", err // tag was mine but building failed — stop here
+			return MetaProvider{}, err // tag was mine but building failed — stop here
 		}
 		if provider != nil {
-			return provider, pc.SysPromptExtension(), nil // tag was mine, built — done
+			modelConfig, _ := findModelByTag(ps.list, tag)
+			return MetaProvider{Provider: provider, SysPromptExt: pc.SysPromptExtension(), ModelConfig: modelConfig}, nil
 		}
 	}
-	return nil, "", fmt.Errorf("unknown model tag %q — run cluesh --llm-list to see configured models", tag)
+	return MetaProvider{}, fmt.Errorf("unknown model tag %q — run cluesh --llm-list to see configured models", tag)
+}
+
+// findModelByTag returns the configured Model for a tag across all providers.
+// Tag uniqueness is enforced by LoadProviders, so at most one exists.
+func findModelByTag(list []ProviderConfig, tag string) (ModelConfigData, bool) {
+	for _, pc := range list {
+		for _, m := range pc.AllModels() {
+			if m.Tag == tag {
+				return m, true
+			}
+		}
+	}
+	return ModelConfigData{}, false
 }
 
 // LLMList renders every configured tag for --llm-list, grouped by provider
@@ -316,7 +378,11 @@ func (ps Providers) LLMList() []string {
 	for _, pc := range ps.list {
 		lines = append(lines, pc.FileName())
 		for _, m := range pc.AllModels() {
-			lines = append(lines, "\t"+m.Tag+"\t"+m.Name)
+			line := "\t" + m.Tag + "\t" + m.Name
+			if s := m.Sampling(); s != "" {
+				line += "\t" + s
+			}
+			lines = append(lines, line)
 		}
 	}
 	return lines

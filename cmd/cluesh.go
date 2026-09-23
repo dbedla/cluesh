@@ -51,7 +51,7 @@ func main() {
 		modelTag = parseParams.LLMTag
 	}
 
-	provider, promptExtension, err := providers.Build(modelTag)
+	metaProvider, err := providers.Build(modelTag)
 	if err != nil {
 		exit(err)
 	}
@@ -64,9 +64,9 @@ func main() {
 	}
 
 	cfg := cluesh.AgentConfig{
-		Provider:     provider,
+		Provider:     metaProvider.Provider,
 		Conversation: rellm.NewFilesystemConversation(convPath),
-		SysPrompt:    sysPrompt + promptExtension,
+		SysPrompt:    sysPrompt + metaProvider.SysPromptExt,
 		MaxSteps:     10,
 	}
 
@@ -80,17 +80,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(mainCfg.ExecutionTimeoutMinutes)*time.Minute)
 	defer cancel()
 
-	effort, err := cluesh.ReasoningEffort(mainCfg.ReasoningEffort)
-	if err != nil {
-		exit(err) // unreachable: LoadConfig validated reasoning_effort
-	}
-
-	prompt, err := rellm.NewPromptBuilder().
-		WithMessage(q).
-		WithReasoning(effort).
-		WithTemperature(mainCfg.Temperature).
-		Build()
-
+	prompt, err := buildPrompt(q, metaProvider.ModelConfig)
 	if err != nil {
 		exit(err)
 	}
@@ -115,6 +105,24 @@ func main() {
 			fmt.Println("\ninfo: command in clipboard")
 		}
 	}
+}
+
+func buildPrompt(q string, m cluesh.ModelConfigData) (*rellm.Prompt, error) {
+	// per-model sampling: unset fields are simply not sent (some models, e.g.
+	// OpenAI reasoning models, reject unsupported parameters with a 400)
+	promptBuilder := rellm.NewPromptBuilder().
+		WithMessage(q)
+	if m.Temperature != nil {
+		promptBuilder = promptBuilder.WithTemperature(*m.Temperature)
+	}
+	if m.Reasoning != "" {
+		effort, err := cluesh.ReasoningEffort(m.Reasoning)
+		if err != nil {
+			exit(err) // unreachable: LoadProviders validated reasoning
+		}
+		promptBuilder = promptBuilder.WithReasoning(effort)
+	}
+	return promptBuilder.Build()
 }
 
 // exit prints the error to stderr and terminates with status 1.

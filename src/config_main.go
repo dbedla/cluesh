@@ -51,9 +51,9 @@ type MainConfig struct {
 	PutCmdInClipboard      string  `json:"put_cmd_in_clipboard"`      // always | never | read-only
 	Colors                 string  `json:"colors"`                    // dark | light | none
 	ExecutionTimeoutMinutes int    `json:"execution_timeout_minutes"` // agent Ask() timeout, minutes — must be >0 and <=60
-	ReasoningEffort        string  `json:"reasoning_effort"`          // none | low | medium | high
-	Temperature            float64 `json:"temperature"`               // passed through to the provider unvalidated
 }
+// Sampling parameters (temperature, reasoning) are per model, configured in
+// the provider files — see Model.
 
 // configTemplate is what gets written on first run: the main config plus a
 // generated _options block listing every allowed value, so users can see
@@ -63,19 +63,11 @@ type configTemplate struct {
 	MainConfig
 }
 
-// DefaultReasoningEffort and DefaultTemperature are the prompt-parameter
-// values written into a freshly generated config.
-const (
-	DefaultReasoningEffort = "low"
-	DefaultTemperature     = 0.4
-)
-
 // configOptions returns the allowed values for each enum-like config field.
 func configOptions() map[string][]string {
 	return map[string][]string{
 		"put_cmd_in_clipboard":   {"always", "never", "read-only"},
 		"colors":                 {"dark", "light", "none"},
-		"reasoning_effort":       {"none", "low", "medium", "high"},
 	}
 }
 
@@ -86,8 +78,6 @@ func DefaultMainConfig() MainConfig {
 		PutCmdInClipboard:       "always",
 		Colors:                  "dark",
 		ExecutionTimeoutMinutes: 5,
-		ReasoningEffort:         DefaultReasoningEffort,
-		Temperature:             DefaultTemperature,
 	}
 }
 
@@ -190,9 +180,6 @@ func LoadConfig(baseDir string) (MainConfig, string, error) {
 	}
 	if cfg.DefaultModelTag == "" {
 		return MainConfig{}, "", errors.New("default_model_tag is missing in " + cfgPath + " — run cluesh --llm-list to see configured models")
-	}
-	if _, err := ReasoningEffort(cfg.ReasoningEffort); err != nil {
-		return MainConfig{}, "", fmt.Errorf("%s: %w", cfgPath, err)
 	}
 
 
