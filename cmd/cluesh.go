@@ -34,9 +34,21 @@ func main() {
 		exit(err)
 	}
 
+	parseParams, err := cluesh.ParseParams(os.Args[1:])
+	if err != nil {
+		exit(err)
+	}
+
+	convPath := cluesh.ConversationPath(baseDir)
+	if !parseParams.Continue {
+		if err := cluesh.StartFresh(convPath); err != nil {
+			exit(err)
+		}
+	}
+
 	cfg := cluesh.AgentConfig{
 		Provider:     provider,
-		Conversation: rellm.NewFilesystemConversation(cluesh.ConversationPath(baseDir)),
+		Conversation: rellm.NewFilesystemConversation(convPath),
 		SysPrompt:    sysPrompt + promptExtension,
 		MaxSteps:     10,
 	}
@@ -46,10 +58,7 @@ func main() {
 		exit(err)
 	}
 
-	if len(os.Args) != 2 {
-		exit(fmt.Errorf("bad args number"))
-	}
-	q := os.Args[1]
+	q := parseParams.Prompt
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(mainCfg.ExecutionTimeoutMinutes)*time.Minute)
 	defer cancel()
