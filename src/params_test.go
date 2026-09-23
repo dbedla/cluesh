@@ -3,6 +3,7 @@ package cluesh
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,6 +22,8 @@ func TestParseParams(t *testing.T) {
 		{"llm-list with prompt", []string{"--llm-list", "do thing"}, Params{LLMList: true, Prompt: "do thing"}},
 		{"llm tag before prompt", []string{"--llm", "or-gemma", "do thing"}, Params{LLMTag: "or-gemma", Prompt: "do thing"}},
 		{"llm tag after prompt", []string{"do thing", "--llm", "or-gemma"}, Params{LLMTag: "or-gemma", Prompt: "do thing"}},
+		{"help no prompt", []string{"--help"}, Params{Help: true}},
+		{"help with prompt", []string{"-h", "do thing"}, Params{Help: true, Prompt: "do thing"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -59,4 +62,19 @@ func TestStartFresh(t *testing.T) {
 	assert.NoError(t, os.WriteFile(path, []byte("{}\n"), 0o600))
 	assert.NoError(t, StartFresh(path))
 	assert.NoFileExists(t, path)
+}
+func TestPrintHelp(t *testing.T) {
+	baseDir := t.TempDir()
+	var buf strings.Builder
+	PrintHelp(&buf, baseDir)
+	out := buf.String()
+
+	for _, want := range []string{
+		"usage: cluesh", "-c, --continue", "--llm-list", "--llm", "-h, --help",
+		"config.json", "sysprompt.md", "conversation.jsonl", "openrouter.json",
+		"api_key_env", baseDir,
+	} {
+		assert.Contains(t, out, want)
+	}
+	assert.NotContains(t, out, "api_key_file")
 }

@@ -21,6 +21,11 @@ func main() {
 		exit(err)
 	}
 
+	if parseParams.Help {
+		cluesh.PrintHelp(os.Stdout, baseDir)
+		return
+	}
+
 	mainCfg, sysPrompt, err := cluesh.LoadConfig(baseDir)
 	if err != nil {
 		exit(err)
