@@ -249,11 +249,8 @@ type Providers struct {
 // LoadProviders creates the provider list; every provider then loads its
 // own file (creating it from its default template when missing) and tag
 // conflicts are checked. One pass does ensure + load.
-func LoadProviders() (Providers, []string, error) {
-	dir, err := ProvidersPath()
-	if err != nil {
-		return Providers{}, nil, err
-	}
+func LoadProviders(baseDir string) (Providers, []string, error) {
+	dir := ProvidersPath(baseDir)
 	if mkErr := os.MkdirAll(dir, 0o755); mkErr != nil {
 		return Providers{}, nil, fmt.Errorf("cannot create %s: %w", dir, mkErr)
 	}
@@ -324,13 +321,9 @@ func (ps Providers) LLMList() []string {
 
 // ── first-run file generation ─────────────────────────────────────────
 
-// ProvidersPath returns ~/.cluesh/providers.
-func ProvidersPath() (string, error) {
-	dir, err := configDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, ProvidersDir), nil
+// ProvidersPath returns baseDir/providers.
+func ProvidersPath(baseDir string) string {
+	return filepath.Join(baseDir, ProvidersDir)
 }
 
 // ── auth helpers ──────────────────────────────────────────────────────

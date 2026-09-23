@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 // ProgramSysPrompt is the built-in sys prompt. It is written into a freshly
@@ -37,6 +38,10 @@ const ConfigFileName = "config.json"
 // The prompt lives in its own file because JSON has no raw multiline strings —
 // no \n escapes to fight with when editing it.
 const SysPromptFileName = "sysprompt.md"
+
+// ConversationFileName is the persisted conversation file inside ConfigDir.
+// JSON lines (rellm FilesystemConversation); missing file = empty conversation.
+const ConversationFileName = "conversation.jsonl"
 
 // MainConfig is the main configuration of the program.
 type MainConfig struct {
@@ -72,47 +77,39 @@ func DefaultMainConfig() MainConfig {
 	}
 }
 
-// ConfigPath returns the absolute path of the main config file (~/.cluesh/config.json).
-func ConfigPath() (string, error) {
-	dir, err := configDir()
-	if err != nil {
-		return "", err
-	}
-	return dir + string(os.PathSeparator) + ConfigFileName, nil
-}
-
-// SysPromptPath returns the absolute path of the sys prompt file (~/.cluesh/sysprompt.txt).
-func SysPromptPath() (string, error) {
-	dir, err := configDir()
-	if err != nil {
-		return "", err
-	}
-	return dir + string(os.PathSeparator) + SysPromptFileName, nil
-}
-
-func configDir() (string, error) {
+// DefaultBaseDir returns the standard cluesh base directory ($HOME/.cluesh).
+// The only place the home directory is resolved; tests pass t.TempDir() instead.
+func DefaultBaseDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("cannot determine home directory: %w", err)
 	}
-	return home + string(os.PathSeparator) + ConfigDir, nil
+	return filepath.Join(home, ConfigDir), nil
 }
 
-// EnsureConfig makes sure ~/.cluesh/ with config.json and sysprompt.txt exists.
+// ConfigPath returns the path of the main config file inside baseDir.
+func ConfigPath(baseDir string) string {
+	return filepath.Join(baseDir, ConfigFileName)
+}
+
+// SysPromptPath returns the path of the sys prompt file inside baseDir.
+func SysPromptPath(baseDir string) string {
+	return filepath.Join(baseDir, SysPromptFileName)
+}
+
+// ConversationPath returns the path of the conversation file inside baseDir.
+func ConversationPath(baseDir string) string {
+	return filepath.Join(baseDir, ConversationFileName)
+}
+
+// EnsureConfig makes sure the base dir with config.json and sysprompt.md exists.
 // Missing files are generated with default settings; created reports them.
-func EnsureConfig() (created []string, err error) {
-	dir, err := configDir()
-	if err != nil {
-		return nil, err
-	}
-	if mkErr := os.MkdirAll(dir, 0o755); mkErr != nil {
-		return nil, fmt.Errorf("cannot create config dir %s: %w", dir, mkErr)
+func EnsureConfig(baseDir string) (created []string, err error) {
+	if mkErr := os.MkdirAll(baseDir, 0o755); mkErr != nil {
+		return nil, fmt.Errorf("cannot create config dir %s: %w", baseDir, mkErr)
 	}
 
-	cfgPath, err := ConfigPath()
-	if err != nil {
-		return nil, err
-	}
+	cfgPath := ConfigPath(baseDir)
 	if _, statErr := os.Stat(cfgPath); os.IsNotExist(statErr) {
 		if wErr := writeJSON(cfgPath, configTemplate{Options: configOptions(), MainConfig: DefaultMainConfig()}); wErr != nil {
 			return nil, wErr
@@ -122,10 +119,7 @@ func EnsureConfig() (created []string, err error) {
 		return nil, fmt.Errorf("cannot access %s: %w", cfgPath, statErr)
 	}
 
-	spPath, err := SysPromptPath()
-	if err != nil {
-		return nil, err
-	}
+	spPath := SysPromptPath(baseDir)
 	if _, statErr := os.Stat(spPath); os.IsNotExist(statErr) {
 		if wErr := os.WriteFile(spPath, []byte(ProgramSysPrompt), 0o600); wErr != nil {
 			return nil, fmt.Errorf("cannot write %s: %w", spPath, wErr)
@@ -150,8 +144,8 @@ func writeJSON(path string, v any) error {
 
 // LoadConfig reads and validates the main config and the sys prompt file.
 // Missing files are generated on first run with a notice.
-func LoadConfig() (MainConfig, string, error) {
-	created, err := EnsureConfig()
+func LoadConfig(baseDir string) (MainConfig, string, error) {
+	created, err := EnsureConfig(baseDir)
 	for _, p := range created {
 		fmt.Printf("created %s\n", p)
 	}
@@ -159,10 +153,7 @@ func LoadConfig() (MainConfig, string, error) {
 		return MainConfig{}, "", err
 	}
 
-	cfgPath, err := ConfigPath()
-	if err != nil {
-		return MainConfig{}, "", err
-	}
+	cfgPath := ConfigPath(baseDir)
 	data, err := os.ReadFile(cfgPath)
 	if err != nil {
 		return MainConfig{}, "", fmt.Errorf("cannot read %s: %w", cfgPath, err)
@@ -188,10 +179,7 @@ func LoadConfig() (MainConfig, string, error) {
 	}
 
 
-	spPath, err := SysPromptPath()
-	if err != nil {
-		return MainConfig{}, "", err
-	}
+	spPath := SysPromptPath(baseDir)
 	sysPrompt, err := os.ReadFile(spPath)
 	if err != nil {
 		return MainConfig{}, "", fmt.Errorf("cannot read sys prompt %s: %w", spPath, err)
@@ -202,6 +190,6 @@ func LoadConfig() (MainConfig, string, error) {
 
 // GenerateTemplateConfig regenerates missing default config files
 // (--generate-template-config). Existing files are left untouched.
-func GenerateTemplateConfig() ([]string, error) {
-	return EnsureConfig()
+func GenerateTemplateConfig(baseDir string) ([]string, error) {
+	return EnsureConfig(baseDir)
 }

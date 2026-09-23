@@ -11,45 +11,43 @@ import (
 )
 
 func main() {
-
-	//keep this will be usefull in next round of test
-	// if len(os.Args) != 0 {
-	// 	cluesh.TPrint()
-	// 	return
-	// }
-
-	mainCfg, sysPrompt, err := cluesh.LoadConfig()
+	baseDir, err := cluesh.DefaultBaseDir()
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 
-	providers, created, err := cluesh.LoadProviders()
+	mainCfg, sysPrompt, err := cluesh.LoadConfig(baseDir)
+	if err != nil {
+		exit(err)
+	}
+
+	providers, created, err := cluesh.LoadProviders(baseDir)
 	for _, p := range created {
 		fmt.Printf("created %s\n", p)
 	}
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 
 	provider, promptExtension, err := providers.Build(mainCfg.DefaultModelTag)
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 
 	cfg := cluesh.AgentConfig{
 		Provider:     provider,
-		Conversation: rellm.NewInMemoryConversation(),
+		Conversation: rellm.NewFilesystemConversation(cluesh.ConversationPath(baseDir)),
 		SysPrompt:    sysPrompt + promptExtension,
 		MaxSteps:     10,
 	}
 
 	agent, err := cluesh.NewAgent(cfg)
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 
 	if len(os.Args) != 2 {
-		panic("bad args number")
+		exit(fmt.Errorf("bad args number"))
 	}
 	q := os.Args[1]
 
@@ -58,15 +56,21 @@ func main() {
 
 	report, err := agent.Ask(ctx, q)
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 
 	fmt.Printf("raw: %s\n", report.Message)
 
 	cmd, err := cluesh.ParseAgentResult(report)
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 
 	cluesh.Print(cluesh.ConsolByName(mainCfg.Colors), cmd)
+}
+
+// exit prints the error to stderr and terminates with status 1.
+func exit(err error) {
+	fmt.Fprintln(os.Stderr, err)
+	os.Exit(1)
 }
