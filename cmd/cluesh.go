@@ -95,10 +95,10 @@ func main() {
 		exit(err)
 	}
 
-	cluesh.Print(cluesh.ConsolByName(mainCfg.Colors), cmd)
+	cluesh.Print(cluesh.ConsoleByName(mainCfg.Colors), cmd)
 	printUsage(report)
 
-	if cluesh.ShouldCopy(mainCfg.PutCmdInClipboard, cmd.RedOnly) {
+	if cluesh.ShouldCopy(mainCfg.PutCmdInClipboard, cmd.ReadOnly) {
 		if err := cluesh.CopyToClipboard(cmd.FinalCommand); err != nil {
 			fmt.Fprintln(os.Stderr, "clipboard:", err)
 		} else {
@@ -141,16 +141,10 @@ func printUsage(report rellm.Report) {
 func waitWithProgressbar(ctx context.Context, agent *rellm.Agent, p *rellm.Prompt) (rellm.Report, error) {
 
 	reportChannel := make(chan agentReport)
-
-	fn := func() {
+	go func() {
 		report, err := agent.Execute(ctx, p)
-		ar := agentReport{
-			report: report,
-			err:    err,
-		}
-		reportChannel <- ar
-	}
-	go fn()
+		reportChannel <- agentReport{report: report, err: err}
+	}()
 
 	ticker := time.NewTicker(1600 * time.Millisecond)
 	defer ticker.Stop()

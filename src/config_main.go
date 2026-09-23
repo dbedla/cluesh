@@ -4,10 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
-
-	"github.com/dbedla/rellm/pkg/rellm"
 )
 
 // ProgramSysPrompt is the built-in sys prompt. It is written into a freshly
@@ -115,7 +114,7 @@ func EnsureConfig(baseDir string) (created []string, err error) {
 	}
 
 	cfgPath := ConfigPath(baseDir)
-	if _, statErr := os.Stat(cfgPath); os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(cfgPath); errors.Is(statErr, fs.ErrNotExist) {
 		if wErr := writeJSON(cfgPath, configTemplate{Options: configOptions(), MainConfig: DefaultMainConfig()}); wErr != nil {
 			return nil, wErr
 		}
@@ -125,7 +124,7 @@ func EnsureConfig(baseDir string) (created []string, err error) {
 	}
 
 	spPath := SysPromptPath(baseDir)
-	if _, statErr := os.Stat(spPath); os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(spPath); errors.Is(statErr, fs.ErrNotExist) {
 		if wErr := os.WriteFile(spPath, []byte(ProgramSysPrompt), 0o600); wErr != nil {
 			return nil, fmt.Errorf("cannot write %s: %w", spPath, wErr)
 		}
@@ -192,25 +191,4 @@ func LoadConfig(baseDir string) (MainConfig, string, error) {
 	return cfg, string(sysPrompt), nil
 }
 
-// GenerateTemplateConfig regenerates missing default config files
-// (--generate-template-config). Existing files are left untouched.
-func GenerateTemplateConfig(baseDir string) ([]string, error) {
-	return EnsureConfig(baseDir)
-}
 
-// ReasoningEffort maps the config string to rellm's enum. Exact match only:
-// any other value (including empty) is an error. LoadConfig calls it, so an
-// unknown or missing reasoning_effort fails config load with the exact set.
-func ReasoningEffort(s string) (rellm.ReasoningEffort, error) {
-	switch s {
-	case "none":
-		return rellm.ReasoningEffortNone, nil
-	case "low":
-		return rellm.ReasoningEffortLow, nil
-	case "medium":
-		return rellm.ReasoningEffortMedium, nil
-	case "high":
-		return rellm.ReasoningEffortHigh, nil
-	}
-	return "", fmt.Errorf("reasoning_effort must be one of none|low|medium|high, got %q", s)
-}

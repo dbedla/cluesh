@@ -1,9 +1,15 @@
 package cluesh
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/dbedla/rellm/pkg/rellm"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLLMListMarked(t *testing.T) {
@@ -34,6 +40,51 @@ func TestLLMListMarkedUnknownDefault(t *testing.T) {
 		"lmstudio.json",
 		"\tlms-gemma\tgoogle/gemma-4-26b-a4b",
 	}, ps.LLMListMarked("no-such-tag"))
+}
+
+func TestLoadProvidersRejectsBadReasoning(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{"unknown value", "bogus"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			baseDir := t.TempDir()
+			_, _, err := LoadProviders(baseDir)
+			require.NoError(t, err)
+
+			// replace the generated "reasoning": "low" with a bad value
+			path := filepath.Join(ProvidersPath(baseDir), "openrouter.json")
+			data, err := os.ReadFile(path)
+			assert.NoError(t, err)
+			out := strings.Replace(string(data),
+				`"reasoning": "low"`,
+				fmt.Sprintf("%q: %q", "reasoning", tt.value), 1)
+			assert.NoError(t, os.WriteFile(path, []byte(out), 0o600))
+
+			_, _, err = LoadProviders(baseDir)
+			assert.Error(t, err)
+		})
+	}
+}
+
+func TestReasoningEffortMapping(t *testing.T) {
+	for s, want := range map[string]rellm.ReasoningEffort{
+		"none":   rellm.ReasoningEffortNone,
+		"low":    rellm.ReasoningEffortLow,
+		"medium": rellm.ReasoningEffortMedium,
+		"high":   rellm.ReasoningEffortHigh,
+	} {
+		got, err := ReasoningEffort(s)
+		assert.NoError(t, err)
+		assert.Equal(t, want, got)
+	}
+	_, err := ReasoningEffort("bogus")
+	assert.Error(t, err)
+	_, err = ReasoningEffort("")
+	assert.Error(t, err)
 }
 
 func TestBuildByTag(t *testing.T) {

@@ -2,7 +2,9 @@ package cluesh
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,6 +39,24 @@ func (m ModelConfigData) Sampling() string {
 		s += "reasoning=" + m.Reasoning
 	}
 	return strings.TrimRight(s, " ")
+}
+
+// ReasoningEffort maps ModelConfigData.Reasoning to rellm's enum. Exact
+// match only: any other value (including empty) is an error. Callers:
+// checkModelSampling (via LoadProviders) validates the config on load,
+// buildPrompt in cmd converts it when sending.
+func ReasoningEffort(s string) (rellm.ReasoningEffort, error) {
+	switch s {
+	case "none":
+		return rellm.ReasoningEffortNone, nil
+	case "low":
+		return rellm.ReasoningEffortLow, nil
+	case "medium":
+		return rellm.ReasoningEffortMedium, nil
+	case "high":
+		return rellm.ReasoningEffortHigh, nil
+	}
+	return "", fmt.Errorf("reasoning must be one of none|low|medium|high, got %q", s)
 }
 
 // ProviderConfig is the contract every provider implementation fulfills.
@@ -244,7 +264,7 @@ func lmsSysPromptExtension() string {
 // supplies path, template and unmarshal target — knowledge of file name and
 // template stays with the implementation.
 func loadOrCreate(path string, template, v any) (created bool, err error) {
-	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(path); errors.Is(statErr, fs.ErrNotExist) {
 		if wErr := writeJSON(path, template); wErr != nil {
 			return false, wErr
 		}

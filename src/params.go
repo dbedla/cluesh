@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 
 	flag "github.com/spf13/pflag"
@@ -79,7 +80,7 @@ func PrintHelp(w io.Writer, baseDir string) {
 // StartFresh deletes the conversation file so the next run starts empty.
 // A missing file is already fresh; rellm recreates the file on first Append.
 func StartFresh(path string) error {
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
 	return nil
