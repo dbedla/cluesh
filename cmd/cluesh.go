@@ -118,7 +118,7 @@ func buildPrompt(q string, m cluesh.ModelConfigData) (*rellm.Prompt, error) {
 	if m.Reasoning != "" {
 		effort, err := cluesh.ReasoningEffort(m.Reasoning)
 		if err != nil {
-			exit(err) // unreachable: LoadProviders validated reasoning
+			return nil, err
 		}
 		promptBuilder = promptBuilder.WithReasoning(effort)
 	}
