@@ -40,9 +40,10 @@ const SysPromptFileName = "sysprompt.md"
 
 // MainConfig is the main configuration of the program.
 type MainConfig struct {
-	DefaultModelTag   string `json:"default_model_tag"`    // required, e.g. "or-glm53flash"
-	PutCmdInClipboard string `json:"put_cmd_in_clipboard"` // always | never | read-only
-	Colors            string `json:"colors"`               // dark | light | none
+	DefaultModelTag        string `json:"default_model_tag"`          // required, e.g. "or-glm53flash"
+	PutCmdInClipboard      string `json:"put_cmd_in_clipboard"`       // always | never | read-only
+	Colors                 string `json:"colors"`                     // dark | light | none
+	ExecutionTimeoutMinutes int    `json:"execution_timeout_minutes"`  // agent Ask() timeout, minutes — must be >0 and <=60
 }
 
 // configTemplate is what gets written on first run: the main config plus a
@@ -56,17 +57,18 @@ type configTemplate struct {
 // configOptions returns the allowed values for each enum-like config field.
 func configOptions() map[string][]string {
 	return map[string][]string{
-		"put_cmd_in_clipboard": {"always", "never", "read-only"},
-		"colors":               {"dark", "light", "none"},
+		"put_cmd_in_clipboard":   {"always", "never", "read-only"},
+		"colors":                 {"dark", "light", "none"},
 	}
 }
 
 // DefaultMainConfig returns the config written on first run.
 func DefaultMainConfig() MainConfig {
 	return MainConfig{
-		DefaultModelTag:   "or-glm53flash",
-		PutCmdInClipboard: "always",
-		Colors:            "dark",
+		DefaultModelTag:         "or-glm53flash",
+		PutCmdInClipboard:       "always",
+		Colors:                  "dark",
+		ExecutionTimeoutMinutes: 5,
 	}
 }
 
@@ -184,6 +186,7 @@ func LoadConfig() (MainConfig, string, error) {
 	if cfg.DefaultModelTag == "" {
 		return MainConfig{}, "", errors.New("default_model_tag is missing in " + cfgPath + " — run cluesh --llm-list to see configured models")
 	}
+
 
 	spPath, err := SysPromptPath()
 	if err != nil {

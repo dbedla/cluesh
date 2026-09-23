@@ -53,7 +53,7 @@ func main() {
 	}
 	q := os.Args[1]
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(mainCfg.ExecutionTimeoutMinutes)*time.Minute)
 	defer cancel()
 
 	report, err := agent.Ask(ctx, q)
