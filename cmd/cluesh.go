@@ -16,6 +16,11 @@ func main() {
 		exit(err)
 	}
 
+	parseParams, err := cluesh.ParseParams(os.Args[1:])
+	if err != nil {
+		exit(err)
+	}
+
 	mainCfg, sysPrompt, err := cluesh.LoadConfig(baseDir)
 	if err != nil {
 		exit(err)
@@ -29,12 +34,14 @@ func main() {
 		exit(err)
 	}
 
-	provider, promptExtension, err := providers.Build(mainCfg.DefaultModelTag)
-	if err != nil {
-		exit(err)
+	if parseParams.LLMList {
+		for _, line := range providers.LLMListMarked(mainCfg.DefaultModelTag) {
+			fmt.Println(line)
+		}
+		return
 	}
 
-	parseParams, err := cluesh.ParseParams(os.Args[1:])
+	provider, promptExtension, err := providers.Build(mainCfg.DefaultModelTag)
 	if err != nil {
 		exit(err)
 	}

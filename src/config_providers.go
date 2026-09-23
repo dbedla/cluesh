@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/dbedla/rellm/pkg/rellm"
 	"github.com/joho/godotenv"
@@ -308,12 +309,27 @@ func (ps Providers) Build(tag string) (rellm.Provider, string, error) {
 	return nil, "", fmt.Errorf("unknown model tag %q — run cluesh --llm-list to see configured models", tag)
 }
 
-// LLMList renders every configured tag for --llm-list.
+// LLMList renders every configured tag for --llm-list, grouped by provider
+// file: one header line per provider, tab-separated model lines below.
 func (ps Providers) LLMList() []string {
 	lines := []string{}
 	for _, pc := range ps.list {
+		lines = append(lines, pc.FileName())
 		for _, m := range pc.AllModels() {
-			lines = append(lines, fmt.Sprintf("%-20s %-16s %s", m.Tag, pc.FileName(), m.Name))
+			lines = append(lines, "\t"+m.Tag+"\t"+m.Name)
+		}
+	}
+	return lines
+}
+
+// LLMListMarked wraps LLMList, appending a (default) marker to the line of
+// the default tag (default_model_tag); an unconfigured default stays unmarked.
+func (ps Providers) LLMListMarked(defaultTag string) []string {
+	lines := ps.LLMList()
+	for i, line := range lines {
+		fields := strings.SplitN(strings.TrimLeft(line, "\t"), "\t", 2)
+		if fields[0] == defaultTag {
+			lines[i] = line + "\t(default)"
 		}
 	}
 	return lines

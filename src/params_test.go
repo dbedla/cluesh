@@ -19,6 +19,8 @@ func TestParseParams(t *testing.T) {
 		{"missing positional", []string{"-c"}, Params{}, true},
 		{"extra positional", []string{"a", "b"}, Params{}, true},
 		{"unknown flag", []string{"-x"}, Params{}, true},
+		{"llm-list no prompt", []string{"--llm-list"}, Params{LLMList: true}, false},
+		{"llm-list with prompt", []string{"--llm-list", "do thing"}, Params{LLMList: true, Prompt: "do thing"}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

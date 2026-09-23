@@ -12,6 +12,7 @@ import (
 // Params is the parsed command line.
 type Params struct {
 	Continue bool   // -c: continue last conversation
+	LLMList  bool   // --llm-list: list configured models and exit
 	Prompt   string // the positional demand
 }
 
@@ -24,16 +25,20 @@ func ParseParams(args []string) (Params, error) {
 	fs := flag.NewFlagSet("cluesh", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.BoolVarP(&p.Continue, "continue", "c", false, "continue last conversation")
+	fs.BoolVar(&p.LLMList, "llm-list", false, "list configured models and exit")
 
 	if err := fs.Parse(args); err != nil {
 		return Params{}, err
 	}
 
 	positional := fs.Args()
-	if len(positional) != 1 {
+	// --llm-list is a listing run: the demand is optional (and ignored).
+	if len(positional) != 1 && !(p.LLMList && len(positional) == 0) {
 		return Params{}, errors.New("usage: cluesh [-c] \"<demand>\" — exactly one prompt argument required")
 	}
-	p.Prompt = positional[0]
+	if len(positional) == 1 {
+		p.Prompt = positional[0]
+	}
 	return p, nil
 }
 
