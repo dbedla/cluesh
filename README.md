@@ -96,7 +96,7 @@ Main settings in `config.json`:
 | `default_model_tag`       | model tag used when `--llm` is not given      | `or-glm53flash` |
 | `put_cmd_in_clipboard`    | `always` \| `never` \| `read-only`            | `always` |
 | `colors`                  | `dark` \| `light` \| `none` (`NO_COLOR` wins) | `dark` |
-| `execution_timeout_minutes` | agent timeout per run, 1–60                 | `5` |
+| `execution_timeout_minutes` | agent timeout per run.                      | `5` |
 
 ## Usage
 

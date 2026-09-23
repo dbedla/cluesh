@@ -47,11 +47,12 @@ const ConversationFileName = "conversation.jsonl"
 
 // MainConfig is the main configuration of the program.
 type MainConfig struct {
-	DefaultModelTag        string  `json:"default_model_tag"`         // required, e.g. "or-glm53flash"
-	PutCmdInClipboard      string  `json:"put_cmd_in_clipboard"`      // always | never | read-only
-	Colors                 string  `json:"colors"`                    // dark | light | none
-	ExecutionTimeoutMinutes int    `json:"execution_timeout_minutes"` // agent Ask() timeout, minutes — must be >0 and <=60
+	DefaultModelTag         string `json:"default_model_tag"`         // required, e.g. "or-glm53flash"
+	PutCmdInClipboard       string `json:"put_cmd_in_clipboard"`      // always | never | read-only
+	Colors                  string `json:"colors"`                    // dark | light | none
+	ExecutionTimeoutMinutes int    `json:"execution_timeout_minutes"` // agent timeout, minutes
 }
+
 // Sampling parameters (temperature, reasoning) are per model, configured in
 // the provider files — see Model.
 
@@ -66,8 +67,8 @@ type configTemplate struct {
 // configOptions returns the allowed values for each enum-like config field.
 func configOptions() map[string][]string {
 	return map[string][]string{
-		"put_cmd_in_clipboard":   {"always", "never", "read-only"},
-		"colors":                 {"dark", "light", "none"},
+		"put_cmd_in_clipboard": {"always", "never", "read-only"},
+		"colors":               {"dark", "light", "none"},
 	}
 }
 
@@ -181,7 +182,6 @@ func LoadConfig(baseDir string) (MainConfig, string, error) {
 	if cfg.DefaultModelTag == "" {
 		return MainConfig{}, "", errors.New("default_model_tag is missing in " + cfgPath + " — run cluesh --llm-list to see configured models")
 	}
-
 
 	spPath := SysPromptPath(baseDir)
 	sysPrompt, err := os.ReadFile(spPath)
