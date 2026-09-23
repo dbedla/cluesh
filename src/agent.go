@@ -5,6 +5,7 @@ package cluesh
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/dbedla/rellm/pkg/rellm"
 	"github.com/invopop/jsonschema"
@@ -84,6 +85,8 @@ func NewAgent(cfg AgentConfig) (*rellm.Agent, error) {
 // ParseAgentResult unmarshals the agent's final message into Command.
 func ParseAgentResult(report rellm.Report) (Command, error) {
 	var cmd Command
-	err := json.Unmarshal([]byte(report.Message), &cmd)
-	return cmd, err
+	if err := json.Unmarshal([]byte(report.Message), &cmd); err != nil {
+		return Command{}, fmt.Errorf("agent output not valid JSON: %w", err)
+	}
+	return cmd, nil
 }

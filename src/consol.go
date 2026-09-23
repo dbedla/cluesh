@@ -10,7 +10,7 @@ import (
 // the Consol implementations are pure writers: same bytes, only colored or
 // not. That way no mode can disagree about layout.
 func Print(format Consol, c Command) {
-	format.FinalComand("\n%s\n\n", c.FinalCommand)
+	format.FinalCommand("\n%s\n\n", c.FinalCommand)
 	for _, sc := range c.SubCommands {
 		format.SubCommand("\t%s\n", sc.Command)
 		for _, arg := range sc.Arguments {
@@ -27,7 +27,7 @@ func Print(format Consol, c Command) {
 
 // Consol is the output writer contract: format + args, no newline handling.
 type Consol interface {
-	FinalComand(format string, a ...interface{})
+	FinalCommand(format string, a ...interface{})
 	SubCommand(format string, a ...interface{})
 	Argument(format string, a ...interface{})
 	ArgumentDescription(format string, a ...interface{})
@@ -46,7 +46,7 @@ type DarkMode struct{}
 
 var _ Consol = &DarkMode{}
 
-func (_ DarkMode) FinalComand(format string, a ...interface{}) {
+func (_ DarkMode) FinalCommand(format string, a ...interface{}) {
 	colored(color.New(color.FgHiYellow, color.Bold))(format, a...)
 }
 func (_ DarkMode) SubCommand(format string, a ...interface{}) {
@@ -67,7 +67,7 @@ type LightMode struct{}
 
 var _ Consol = &LightMode{}
 
-func (_ LightMode) FinalComand(format string, a ...interface{}) {
+func (_ LightMode) FinalCommand(format string, a ...interface{}) {
 	colored(color.New(color.FgBlue, color.Bold))(format, a...)
 }
 func (_ LightMode) SubCommand(format string, a ...interface{}) {
@@ -88,7 +88,7 @@ type NoMode struct{}
 
 var _ Consol = &NoMode{}
 
-func (_ NoMode) FinalComand(format string, a ...interface{})         { fmt.Printf(format, a...) }
+func (_ NoMode) FinalCommand(format string, a ...interface{})  { fmt.Printf(format, a...) }
 func (_ NoMode) SubCommand(format string, a ...interface{})          { fmt.Printf(format, a...) }
 func (_ NoMode) Argument(format string, a ...interface{})            { fmt.Printf(format, a...) }
 func (_ NoMode) ArgumentDescription(format string, a ...interface{}) { fmt.Printf(format, a...) }
