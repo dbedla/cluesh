@@ -93,6 +93,33 @@ func ParseAgentResult(report rellm.Report) (Command, error) {
 	return cmd, nil
 }
 
+// UsageSummary sums tokens and cost across all provider calls of the run
+// for printing; empty when the run has no usage stats.
+func UsageSummary(report rellm.Report) string {
+	var in, cached, out, reasoning, total int
+	var cost float64
+	for _, step := range report.StepsStats {
+		u := step.APIUsage
+		in += u.InputTokens
+		cached += u.InputTokensDetails.CachedTokens
+		out += u.OutputTokens
+		reasoning += u.OutputTokensDetails.ReasoningTokens
+		total += u.TotalTokens
+		if u.Cost != nil {
+			cost += *u.Cost
+		}
+	}
+	if total == 0 {
+		return ""
+	}
+	line := fmt.Sprintf("info: tokens: in %d (cached %d), out %d (reasoning %d), total %d",
+		in, cached, out, reasoning, total)
+	if cost > 0 {
+		line += fmt.Sprintf(", cost $%.8f", cost)
+	}
+	return line
+}
+
 // func InspectWithReqLog(req *rellm.ResponsesAPIReq) {
 // 	fmt.Println(" === REQ ===")
 // 	// b, err := json.Marshal(req)

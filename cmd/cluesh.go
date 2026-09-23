@@ -106,12 +106,13 @@ func main() {
 	}
 
 	cluesh.Print(cluesh.ConsolByName(mainCfg.Colors), cmd)
+	printUsage(report)
 
 	if cluesh.ShouldCopy(mainCfg.PutCmdInClipboard, cmd.RedOnly) {
 		if err := cluesh.CopyToClipboard(cmd.FinalCommand); err != nil {
 			fmt.Fprintln(os.Stderr, "clipboard:", err)
 		} else {
-			fmt.Println("info: command in clipboard")
+			fmt.Println("\ninfo: command in clipboard")
 		}
 	}
 }
@@ -120,6 +121,13 @@ func main() {
 func exit(err error) {
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
+}
+
+// printUsage prints the token/cost summary line; silent without stats.
+func printUsage(report rellm.Report) {
+	if line := cluesh.UsageSummary(report); line != "" {
+		fmt.Println(line)
+	}
 }
 
 func waitWithProgressbar(ctx context.Context, agent *rellm.Agent, p *rellm.Prompt) (rellm.Report, error) {
