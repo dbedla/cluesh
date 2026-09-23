@@ -68,7 +68,7 @@ func PrintHelp(w io.Writer, baseDir string) {
 	fmt.Fprintf(w, "  %s   main settings (default model, clipboard mode, colors, timeout)\n", ConfigFileName)
 	fmt.Fprintf(w, "  %s   system prompt\n", SysPromptFileName)
 	fmt.Fprintf(w, "  %s   one JSON file per provider (openrouter.json, openai.json, lmstudio.json)\n", ProvidersDir+"/")
-	fmt.Fprintf(w, "  %s   persisted conversation (created on first run)\n", ConversationFileName)
+	fmt.Fprintf(w, "  %s   persisted conversation (created on first ask)\n", ConversationFileName)
 
 	fmt.Fprintf(w, "\nAPI key setup (per provider file, e.g. providers/openrouter.json):\n")
 	fmt.Fprintf(w, `  "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)
