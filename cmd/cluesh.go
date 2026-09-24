@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dbedla/rellm/pkg/rellm"
+	"github.com/fatih/color"
 )
 
 func main() {
@@ -85,6 +86,7 @@ func main() {
 		exit(err)
 	}
 
+	printModelConfig(metaProvider.ModelConfig)
 	report, err := waitWithProgressbar(ctx, agent, prompt)
 	if err != nil {
 		exit(err)
@@ -98,12 +100,27 @@ func main() {
 	cluesh.Print(cluesh.ConsoleByName(mainCfg.Colors), cmd)
 	printUsage(report)
 
+	printLLMClaimOnCmd(cmd.ReadOnly)
+
 	if cluesh.ShouldCopy(mainCfg.PutCmdInClipboard, cmd.ReadOnly) {
 		if err := cluesh.CopyToClipboard(cmd.FinalCommand); err != nil {
 			fmt.Fprintln(os.Stderr, "clipboard:", err)
 		} else {
-			fmt.Println("\ninfo: command in clipboard")
+			fmt.Println("info: command in clipboard")
 		}
+	}
+}
+
+func printModelConfig(m cluesh.ModelConfigData) {
+	fmt.Printf("\nModel: %s\n", m.Name)
+	fmt.Printf("%s\n", m.Sampling())
+}
+
+func printLLMClaimOnCmd(noFileModification bool) {
+	if noFileModification {
+		fmt.Println("LLM claim: <no file modification>")
+	} else {
+		color.Red("LLM claim: <some file will be modified>")
 	}
 }
 
