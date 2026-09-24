@@ -1,33 +1,45 @@
 # cluesh
 
-Natural-language demand in, one copy-paste-ready bash command out.
+Command line help you need.
+Explanmation always structured in the same way.
+Configure your provider and model (LM Studio, OpenAI, OpenRouter)
+
+in: Natural-language ask for bash command
+out: one copy-paste-ready bash command ()
 
 ```
-$ cluesh "find all go files with more than 100 lines"
-=========
+$ cluesh "list all .go files whit more then 10 lines" --llm oai-luna 
 
-find . -name '*.go' -exec sh -c 'lines=$(wc -l < "$1"); [ "$lines" -gt 100 ] && echo "$1"' _ {} \;
+Model: gpt-5.6-luna
+reasoning=low
+====
+
+find . -type f -name '*.go' -exec awk 'FNR > 10 {print FILENAME; nextfile}' {} +
 
 	find
 		 .
-		  search current directory recursively
+		  Search from the current directory
+		 -type
+		  Restrict matches to files of a specified type
+		 f
+		  Match regular files
 		 -name
-		  match files by name pattern
-		 '*.go'
-		  only Go source files
+		  Match filenames by pattern
+		 *.go
+		  Match Go source files
 		 -exec
-		  run a shell check for each file
-		 sh -c 'lines=$(wc -l < "$1"); [ "$lines" -gt 100 ] && echo "$1"'
-		  count lines with wc -l and print file if more than 100
-		 _
-		  placeholder for $0 in sh -c
+		  Run a command on the matched files
+		 awk 'FNR > 10 {print FILENAME; nextfile}'
+		  Print each Go filename once it has more than 10 lines
 		 {}
-		  current file path passed as $1
-		 \;
-		  terminate the -exec command
+		  Placeholder for matched filenames
+		 +
+		  Pass multiple matched files to each awk invocation
 
-Uses a small sh -c wrapper since find's -exec cannot do numeric comparisons directly. Alternative: find . -name '*.go' | xargs wc -l | awk '$1>100 && $2!="total"{print $2}' — but the find -exec version handles filenames with spaces correctly.
+Lists .go files containing more than 10 lines, including filenames with spaces.
 
+info: tokens: in 341 (cached 0), out 455 (reasoning 240), total 796
+LLM claim: <no file modification>
 info: command in clipboard
 
 ```
@@ -35,6 +47,7 @@ info: command in clipboard
 cluesh sends your demand to a cheap LLM (OpenRouter, OpenAI or a local LM Studio
 endpoint) and prints a colored explanation of every subcommand and flag of the
 resulting command, plus the final one-liner — ready to paste.
+Needs different model go to ~/.cluesh/providers/ and add what you need
 
 ## Install
 
@@ -55,6 +68,10 @@ conversation.jsonl   persisted conversation (created on the first ask)
 
 Every missing file is generated with default settings and reported:
 `created /home/you/.cluesh/config.json`. Existing files are never overwritten.
+
+Messup some config file, do not warry, remove file or rename it, run cluesh again,
+file will be regenerated
+
 
 ## Setup
 
@@ -126,7 +143,7 @@ Flags:
       --llm string   use model with tag <tag> this run (default_model_tag if unset)
       --llm-list     list configured models and exit
 
-Config location: /home/you/.cluesh
+Config location: /Users/dawidbedla/.cluesh
   config.json   main settings (default model, clipboard mode, colors, timeout)
   sysprompt.md   system prompt
   providers/   one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
