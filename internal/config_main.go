@@ -106,6 +106,14 @@ func ConversationPath(baseDir string) string {
 	return filepath.Join(baseDir, ConversationFileName)
 }
 
+// IsFirstRun reports whether baseDir is missing or empty — nothing has been
+// configured yet. A dir that can't be read counts as first run; the real
+// error surfaces later from EnsureConfig.
+func IsFirstRun(baseDir string) bool {
+	entries, err := os.ReadDir(baseDir)
+	return err != nil || len(entries) == 0
+}
+
 // EnsureConfig makes sure the base dir with config.json and sysprompt.md exists.
 // Missing files are generated with default settings; created reports them.
 func EnsureConfig(baseDir string) (created []string, err error) {

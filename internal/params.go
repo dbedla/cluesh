@@ -77,13 +77,8 @@ func GetHelp(baseDir string) string {
 	fs.SetOutput(&help)
 	fs.PrintDefaults()
 
-	help.WriteString("\nDetailed info:\n")
-	help.WriteString("https://rellm.dev/agents/cluesh — cluesh homepage\n")
-	help.WriteString("https://github.com/dbedla/cluesh — #agent-of-rellm\n")
-	help.WriteString("https://rellm.dev — rellm homepage\n")
-	help.WriteString("https://github.com/dbedla/rellm — LLM communication framework\n")
-
-	help.WriteString("\nConfig location: " + shortenHome(baseDir) + "\n")
+	location := fmt.Sprintf("\nConfig location: %s\n", shortenHome(baseDir))
+	help.WriteString(location)
 	files := []struct{ name, desc string }{
 		{ConfigFileName, "main settings (default model, clipboard mode, colors, timeout)"},
 		{SysPromptFileName, "system prompt"},
@@ -91,7 +86,8 @@ func GetHelp(baseDir string) string {
 		{ConversationFileName, "persisted conversation (created on first ask)"},
 	}
 	for _, f := range files {
-		help.WriteString(fmt.Sprintf("  %-19s %s\n", f.name, f.desc))
+		cfgFileAndDesc := fmt.Sprintf("  %-19s %s\n", f.name, f.desc)
+		help.WriteString(cfgFileAndDesc)
 	}
 	help.WriteString(`
 API key setup (per provider file, e.g. providers/openrouter.json):
@@ -99,6 +95,12 @@ API key setup (per provider file, e.g. providers/openrouter.json):
   "api_key": "sk-..."                   inline in the provider file (last resort)
   both set? the environment variable wins
 `)
+
+	help.WriteString("\nDetailed info:\n")
+	help.WriteString("https://rellm.dev/agents/cluesh — cluesh homepage\n")
+	help.WriteString("https://github.com/dbedla/cluesh — #agent-of-rellm\n")
+	help.WriteString("https://rellm.dev — rellm homepage\n")
+	help.WriteString("https://github.com/dbedla/rellm — LLM communication framework\n")
 
 	return help.String()
 }

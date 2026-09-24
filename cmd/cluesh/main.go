@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	cluesh "github.com/dbedla/cluesh/internal"
 	"os"
 	"time"
+
+	cluesh "github.com/dbedla/cluesh/internal"
 
 	"github.com/dbedla/rellm/pkg/rellm"
 	"github.com/fatih/color"
@@ -15,6 +16,11 @@ func main() {
 	baseDir, err := cluesh.DefaultBaseDir()
 	if err != nil {
 		exit(err)
+	}
+
+	if cluesh.IsFirstRun(baseDir) {
+		firstRun(baseDir)
+		return
 	}
 
 	parseParams, err := cluesh.ParseParams(os.Args[1:])
@@ -109,6 +115,25 @@ func main() {
 			fmt.Println("info: command in clipboard")
 		}
 	}
+}
+
+func firstRun(baseDir string) {
+	if _, _, err := cluesh.LoadConfig(baseDir); err != nil {
+		exit(err)
+	}
+	_, created, err := cluesh.LoadProviders(baseDir)
+	if err != nil {
+		exit(err)
+	}
+	for _, p := range created {
+		fmt.Printf("created %s\n", p)
+	}
+	fmt.Println("\nFirst run: default configuration created. Finish configuration:")
+	fmt.Println("  - set your API key in a provider file, e.g. providers/openrouter.json:")
+	fmt.Println(`      "api_key_env": "OPENROUTER_API_KEY"`)
+	fmt.Println("  - review config.json and pick your default model (default_model_tag)")
+	fmt.Println(`Then run: cluesh "<demand>"`)
+	fmt.Println("Details: cluesh --help / https://github.com/dbedla/cluesh/blob/main/README.md")
 }
 
 func printModelConfig(m cluesh.ModelConfigData) {

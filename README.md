@@ -174,6 +174,7 @@ cluesh --help
 
 ```
 cluesh — natural-language demand in, one copy-paste-ready bash command out
+
 usage: cluesh [-c] [--llm <tag>] "<demand>"
 
 Flags:
@@ -181,12 +182,6 @@ Flags:
   -h, --help         show help and exit
       --llm string   use model with tag <tag> this run (default_model_tag if unset)
       --llm-list     list configured models and exit
-
-Detailed info:
-https://rellm.dev/agents/cluesh — cluesh homepage
-https://github.com/dbedla/cluesh — #agent-of-rellm
-https://rellm.dev — rellm homepage
-https://github.com/dbedla/rellm — LLM communication framework
 
 Config location: ~/.cluesh
   config.json         main settings (default model, clipboard mode, colors, timeout)
@@ -198,6 +193,12 @@ API key setup (per provider file, e.g. providers/openrouter.json):
   "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)
   "api_key": "sk-..."                   inline in the provider file (last resort)
   both set? the environment variable wins
+
+Detailed info:
+https://rellm.dev/agents/cluesh — cluesh homepage
+https://github.com/dbedla/cluesh — #agent-of-rellm
+https://rellm.dev — rellm homepage
+https://github.com/dbedla/rellm — LLM communication framework
 ```
 
 ## Models list
