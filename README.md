@@ -1,7 +1,8 @@
 # cluesh
 
-Natural-language demand in, one copy-paste-ready bash command out —
-explained flag by flag, every time.
+cluesh is an AI agent that turns a natural-language demand into one
+copy-paste-ready bash command, explained flag by flag — powered by LLM
+models from external providers (OpenRouter, OpenAI, LM Studio).
 
 in:  natural-language ask for a bash command
 out: one copy-paste-ready bash command, plus a structured explanation
@@ -54,7 +55,8 @@ info: command in clipboard
 </details>
 
 You don't need a 200-flag generalist agent to run one command. `cluesh` sends
-your demand to a cheap LLM (OpenRouter, OpenAI or a local LM Studio endpoint)
+your demand to a cheap LLM ([OpenRouter](https://openrouter.ai),
+[OpenAI](https://openai.com) or a local [LM Studio](https://lmstudio.ai) endpoint)
 and prints a colored explanation of every subcommand and flag of the resulting
 command, plus the final one-liner — ready to paste. It never executes anything
 itself; the only side effect is your clipboard.
@@ -76,6 +78,20 @@ Source: <https://github.com/dbedla/cluesh>
 ```
 go install github.com/dbedla/cluesh/cmd/cluesh@latest
 ```
+
+## Tutorial
+
+New to cluesh? Follow the step-by-step walkthrough in
+[doc/tutorial.md](doc/tutorial.md):
+
+1. [Check the Go binary directory](doc/tutorial.md#1-check-the-go-binary-directory)
+2. [Install cluesh](doc/tutorial.md#2-install-cluesh)
+3. [Create the default configuration](doc/tutorial.md#3-create-the-default-configuration)
+4. [Choose the default model](doc/tutorial.md#4-choose-the-default-model)
+5. [Configure an OpenRouter model](doc/tutorial.md#5-configure-an-openrouter-model)
+6. [Run the first request](doc/tutorial.md#6-run-the-first-request)
+7. [Inspect the saved conversation](doc/tutorial.md#7-inspect-the-saved-conversation)
+8. [Continue the conversation](doc/tutorial.md#8-continue-the-conversation)
 
 ## First run
 
@@ -100,8 +116,9 @@ regenerated with defaults.
 ### API key
 
 Configure a key for the provider you want to use — every provider has its own
-key settings. For the default provider (`openrouter.json`) either export the
-environment variable (recommended):
+key settings. For the default provider (`openrouter.json`)
+([generate a key here](https://openrouter.ai/workspaces/default/keys)) either
+export the environment variable (recommended):
 
 ```
 export OPENROUTER_API_KEY="sk-or-..."
@@ -127,8 +144,9 @@ with `api_key` added):
 
 `api_key_env` names the environment variable the key is read from; the inline
 `api_key` is used only when that variable is empty. Same pattern for
-`openai.json` (`OPENAI_API_KEY`); `lmstudio.json` talks to a local endpoint
-and needs no key.
+`openai.json` (`OPENAI_API_KEY`,
+[key](https://platform.openai.com/api-keys)); `lmstudio.json` talks to a
+local [LM Studio](https://lmstudio.ai) endpoint and needs no key.
 
 ### Model selection
 
