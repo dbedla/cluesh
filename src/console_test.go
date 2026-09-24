@@ -24,7 +24,8 @@ func TestPrintLayout(t *testing.T) {
 		}},
 		Notes: "note",
 	})
-	w.Close()
+	err = w.Close()
+	assert.NoError(t, err)
 	os.Stdout = old
 
 	out, err := io.ReadAll(r)

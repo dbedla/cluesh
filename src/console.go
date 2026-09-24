@@ -47,19 +47,19 @@ type DarkMode struct{}
 
 var _ Console = &DarkMode{}
 
-func (_ DarkMode) FinalCommand(format string, a ...interface{}) {
+func (DarkMode) FinalCommand(format string, a ...interface{}) {
 	colored(color.New(color.FgHiYellow, color.Bold))(format, a...)
 }
-func (_ DarkMode) SubCommand(format string, a ...interface{}) {
+func (DarkMode) SubCommand(format string, a ...interface{}) {
 	colored(color.New(color.FgHiWhite))(format, a...)
 }
-func (_ DarkMode) Argument(format string, a ...interface{}) {
+func (DarkMode) Argument(format string, a ...interface{}) {
 	colored(color.New(color.FgHiWhite))(format, a...)
 }
-func (_ DarkMode) ArgumentDescription(format string, a ...interface{}) {
+func (DarkMode) ArgumentDescription(format string, a ...interface{}) {
 	colored(color.New(color.FgHiGreen))(format, a...)
 }
-func (_ DarkMode) Notes(format string, a ...interface{}) {
+func (DarkMode) Notes(format string, a ...interface{}) {
 	colored(color.New(color.FgCyan, color.Italic))(format, a...)
 }
 
@@ -68,19 +68,19 @@ type LightMode struct{}
 
 var _ Console = &LightMode{}
 
-func (_ LightMode) FinalCommand(format string, a ...interface{}) {
+func (LightMode) FinalCommand(format string, a ...interface{}) {
 	colored(color.New(color.FgBlue, color.Bold))(format, a...)
 }
-func (_ LightMode) SubCommand(format string, a ...interface{}) {
+func (LightMode) SubCommand(format string, a ...interface{}) {
 	colored(color.New(color.FgMagenta))(format, a...)
 }
-func (_ LightMode) Argument(format string, a ...interface{}) {
+func (LightMode) Argument(format string, a ...interface{}) {
 	colored(color.New(color.FgHiMagenta))(format, a...)
 }
-func (_ LightMode) ArgumentDescription(format string, a ...interface{}) {
+func (LightMode) ArgumentDescription(format string, a ...interface{}) {
 	colored(color.New(color.FgBlack))(format, a...)
 }
-func (_ LightMode) Notes(format string, a ...interface{}) {
+func (LightMode) Notes(format string, a ...interface{}) {
 	colored(color.New(color.FgHiBlue, color.Italic))(format, a...)
 }
 
@@ -89,11 +89,11 @@ type NoMode struct{}
 
 var _ Console = &NoMode{}
 
-func (_ NoMode) FinalCommand(format string, a ...interface{})        { fmt.Printf(format, a...) }
-func (_ NoMode) SubCommand(format string, a ...interface{})          { fmt.Printf(format, a...) }
-func (_ NoMode) Argument(format string, a ...interface{})            { fmt.Printf(format, a...) }
-func (_ NoMode) ArgumentDescription(format string, a ...interface{}) { fmt.Printf(format, a...) }
-func (_ NoMode) Notes(format string, a ...interface{})               { fmt.Printf(format, a...) }
+func (NoMode) FinalCommand(format string, a ...interface{})        { fmt.Printf(format, a...) }
+func (NoMode) SubCommand(format string, a ...interface{})          { fmt.Printf(format, a...) }
+func (NoMode) Argument(format string, a ...interface{})            { fmt.Printf(format, a...) }
+func (NoMode) ArgumentDescription(format string, a ...interface{}) { fmt.Printf(format, a...) }
+func (NoMode) Notes(format string, a ...interface{})               { fmt.Printf(format, a...) }
 
 // ConsoleByName maps the colors config value (dark | light | none) to a
 // Console implementation. NO_COLOR (https://no-color.org) wins over config.
