@@ -1,5 +1,3 @@
-.PHONY: fmt vet test cover
-
 COVERAGE_PATH=./output/coverage/
 COMPLEXITY_PATH=./output/complexity/
 BIN_PATH=./output/bin/
