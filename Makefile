@@ -4,13 +4,15 @@ COVERAGE_PATH=./output/coverage/
 COMPLEXITY_PATH=./output/complexity/
 BIN_PATH=./output/bin/
 
+all: go-nuke list go-fmt go-build go-test go-lint go-cyclo go-coverage
+
 list:
 	@echo ""
 	@make -qpRr | grep -E '^[a-z].*:' | cut -d: -f1 | sort
 	@echo ""
 
 go-fmt:
-	gofmt -l -w ./src ./cmd
+	gofmt -l -w ./internal ./cmd
 
 go-build:
 	mkdir -p ${BIN_PATH}
@@ -37,6 +39,4 @@ go-nuke:
 	go clean -cache
 	go clean -i ./...
 	go clean
-	rm ${BIN_PATH}* || true
-	rm ${COVERAGE_PATH}* || true
-	rm ${COMPLEXITY_PATH}* || true
+	rm rm -rf ./output || true
