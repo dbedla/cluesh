@@ -3,6 +3,7 @@ package cluesh
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -55,6 +56,16 @@ func ParseParams(args []string) (Params, error) {
 	return *p, nil
 }
 
+// shortenHome replaces the user's home directory prefix with "~" so paths in
+// help output don't leak usernames.
+func shortenHome(path string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return path
+	}
+	return strings.Replace(path, home, "~", 1)
+}
+
 // GetHelp returns usage, the generated flag list (pflag PrintDefaults), the
 // config location and key setup. baseDir is resolved by the caller so help
 // works even when the config is missing or broken.
@@ -62,18 +73,24 @@ func GetHelp(baseDir string) string {
 	var help strings.Builder
 	fs, _ := newFlagSet()
 	help.WriteString("cluesh — natural-language demand in, one copy-paste-ready bash command out\n")
-	help.WriteString("usage: cluesh [-c] [--llm <tag>] \"<demand>\"\n\nFlags:\n")
+	help.WriteString("\nusage: cluesh [-c] [--llm <tag>] \"<demand>\"\n\nFlags:\n")
 	fs.SetOutput(&help)
 	fs.PrintDefaults()
 
-	help.WriteString("\nLLM backend: rellm (github.com/dbedla/rellm) — #agent-of-rellm\n")
-	help.WriteString("Source: github.com/dbedla/cluesh\n")
+	help.WriteString("\nhttps://github.com/dbedla/cluesh — #agent-of-rellm\n")
+	help.WriteString("https://github.com/dbedla/rellm — LLM communication framework\n")
+	help.WriteString("Detailed info: README.md\n")
 
-	help.WriteString("\nConfig location: " + baseDir + "\n")
-	help.WriteString("  " + ConfigFileName + "   main settings (default model, clipboard mode, colors, timeout)\n")
-	help.WriteString("  " + SysPromptFileName + "   system prompt\n")
-	help.WriteString("  " + ProvidersDir + "/   one JSON file per provider (openrouter.json, openai.json, lmstudio.json)\n")
-	help.WriteString("  " + ConversationFileName + "   persisted conversation (created on first ask)\n")
+	help.WriteString("\nConfig location: " + shortenHome(baseDir) + "\n")
+	files := []struct{ name, desc string }{
+		{ConfigFileName, "main settings (default model, clipboard mode, colors, timeout)"},
+		{SysPromptFileName, "system prompt"},
+		{ProvidersDir + "/", "one JSON file per provider (openrouter.json, openai.json, lmstudio.json)"},
+		{ConversationFileName, "persisted conversation (created on first ask)"},
+	}
+	for _, f := range files {
+		help.WriteString(fmt.Sprintf("  %-19s %s\n", f.name, f.desc))
+	}
 	help.WriteString(`
 API key setup (per provider file, e.g. providers/openrouter.json):
   "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)

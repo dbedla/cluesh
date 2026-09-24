@@ -154,14 +154,15 @@ Flags:
       --llm string   use model with tag <tag> this run (default_model_tag if unset)
       --llm-list     list configured models and exit
 
-LLM backend: rellm (github.com/dbedla/rellm) — #agent-of-rellm
-Source: github.com/dbedla/cluesh
+https://github.com/dbedla/cluesh — #agent-of-rellm
+https://github.com/dbedla/rellm — LLM communication framework
+Detailed info: README.md
 
-Config location: /home/you/.cluesh
-  config.json   main settings (default model, clipboard mode, colors, timeout)
-  sysprompt.md   system prompt
-  providers/   one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
-  conversation.jsonl   persisted conversation (created on first ask)
+Config location: ~/.cluesh
+  config.json         main settings (default model, clipboard mode, colors, timeout)
+  sysprompt.md        system prompt
+  providers/          one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
+  conversation.jsonl  persisted conversation (created on first ask)
 
 API key setup (per provider file, e.g. providers/openrouter.json):
   "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)

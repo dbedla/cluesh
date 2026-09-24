@@ -69,9 +69,20 @@ func TestGetHelp(t *testing.T) {
 	for _, want := range []string{
 		"usage: cluesh", "-c, --continue", "--llm-list", "--llm", "-h, --help",
 		"config.json", "sysprompt.md", "conversation.jsonl", "openrouter.json",
-		"api_key_env", baseDir, "#agent-of-rellm", "rellm", "github.com/dbedla/cluesh",
+		"api_key_env", baseDir, "https://github.com/dbedla/cluesh",
+		"https://github.com/dbedla/rellm", "README.md",
 	} {
 		assert.Contains(t, out, want)
 	}
 	assert.NotContains(t, out, "api_key_file")
+}
+
+func TestGetHelpShortensHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home dir")
+	}
+	out := GetHelp(home + string(os.PathSeparator) + ".cluesh")
+	assert.Contains(t, out, "~"+string(os.PathSeparator)+".cluesh")
+	assert.NotContains(t, out, home)
 }
