@@ -1,6 +1,13 @@
+.PHONY: list
+
 COVERAGE_PATH=./output/coverage/
 COMPLEXITY_PATH=./output/complexity/
 BIN_PATH=./output/bin/
+
+list:
+	@echo ""
+	@make -qpRr | grep -E '^[a-z].*:' | cut -d: -f1 | sort
+	@echo ""
 
 go-fmt:
 	gofmt -l -w ./src ./cmd
