@@ -7,8 +7,13 @@ in:  natural-language ask for a bash command
 out: one copy-paste-ready bash command, plus a structured explanation
      of every subcommand, flag and argument
 
+![cluesh dark-mode output](doc/darkmode.png)
+
+<details>
+<summary>Full output as text</summary>
+
 ```
-$ cluesh "list all .go files with more than 10 lines" --llm oai-luna 
+$ cluesh "list all .go files with more than 10 lines" --llm oai-luna
 
 Model: gpt-5.6-luna
 reasoning=low
@@ -43,6 +48,8 @@ LLM claim: <no file modification>
 info: command in clipboard
 
 ```
+
+</details>
 
 You don't need a 200-flag generalist agent to run one command. `cluesh` sends
 your demand to a cheap LLM (OpenRouter, OpenAI or a local LM Studio endpoint)
