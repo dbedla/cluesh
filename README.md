@@ -1,14 +1,14 @@
 # cluesh
 
-Command line help you need.
-Explanmation always structured in the same way.
-Configure your provider and model (LM Studio, OpenAI, OpenRouter)
+Natural-language demand in, one copy-paste-ready bash command out —
+explained flag by flag, every time.
 
-in: Natural-language ask for bash command
-out: one copy-paste-ready bash command ()
+in:  natural-language ask for a bash command
+out: one copy-paste-ready bash command, plus a structured explanation
+     of every subcommand, flag and argument
 
 ```
-$ cluesh "list all .go files whit more then 10 lines" --llm oai-luna 
+$ cluesh "list all .go files with more than 10 lines" --llm oai-luna 
 
 Model: gpt-5.6-luna
 reasoning=low
@@ -44,10 +44,21 @@ info: command in clipboard
 
 ```
 
-cluesh sends your demand to a cheap LLM (OpenRouter, OpenAI or a local LM Studio
-endpoint) and prints a colored explanation of every subcommand and flag of the
-resulting command, plus the final one-liner — ready to paste.
-Needs different model go to ~/.cluesh/providers/ and add what you need
+You don't need a 200-flag generalist agent to run one command. `cluesh` sends
+your demand to a cheap LLM (OpenRouter, OpenAI or a local LM Studio endpoint)
+and prints a colored explanation of every subcommand and flag of the resulting
+command, plus the final one-liner — ready to paste. It never executes anything
+itself; the only side effect is your clipboard.
+
+Providers and models are plain JSON under `~/.cluesh/providers/` — add whatever
+you need, switch with `--llm <tag>` per run.
+
+cluesh is part of the **#agent-of-rellm** family: small agents that do one job
+well. LLM communication runs on [rellm](https://github.com/dbedla/rellm) — a
+lightweight Go framework for building specialized agents on the OpenAI
+Responses API (LM Studio, OpenAI, OpenRouter).
+
+Source: <https://github.com/dbedla/cluesh>
 
 ## Install
 
@@ -69,8 +80,8 @@ conversation.jsonl   persisted conversation (created on the first ask)
 Every missing file is generated with default settings and reported:
 `created /home/you/.cluesh/config.json`. Existing files are never overwritten.
 
-Messup some config file, do not warry, remove file or rename it, run cluesh again,
-file will be regenerated
+Mess up a config file? Remove or rename it and run `cluesh` again — the file is
+regenerated with defaults.
 
 
 ## Setup
@@ -143,7 +154,10 @@ Flags:
       --llm string   use model with tag <tag> this run (default_model_tag if unset)
       --llm-list     list configured models and exit
 
-Config location: /Users/dawidbedla/.cluesh
+LLM backend: rellm (github.com/dbedla/rellm) — #agent-of-rellm
+Source: github.com/dbedla/cluesh
+
+Config location: /home/you/.cluesh
   config.json   main settings (default model, clipboard mode, colors, timeout)
   sysprompt.md   system prompt
   providers/   one JSON file per provider (openrouter.json, openai.json, lmstudio.json)

@@ -66,6 +66,9 @@ func GetHelp(baseDir string) string {
 	fs.SetOutput(&help)
 	fs.PrintDefaults()
 
+	help.WriteString("\nLLM backend: rellm (github.com/dbedla/rellm) — #agent-of-rellm\n")
+	help.WriteString("Source: github.com/dbedla/cluesh\n")
+
 	help.WriteString("\nConfig location: " + baseDir + "\n")
 	help.WriteString("  " + ConfigFileName + "   main settings (default model, clipboard mode, colors, timeout)\n")
 	help.WriteString("  " + SysPromptFileName + "   system prompt\n")

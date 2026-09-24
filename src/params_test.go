@@ -69,7 +69,7 @@ func TestGetHelp(t *testing.T) {
 	for _, want := range []string{
 		"usage: cluesh", "-c, --continue", "--llm-list", "--llm", "-h, --help",
 		"config.json", "sysprompt.md", "conversation.jsonl", "openrouter.json",
-		"api_key_env", baseDir,
+		"api_key_env", baseDir, "#agent-of-rellm", "rellm", "github.com/dbedla/cluesh",
 	} {
 		assert.Contains(t, out, want)
 	}
