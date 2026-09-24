@@ -32,7 +32,7 @@ type ModelConfigData struct {
 func (m ModelConfigData) Sampling() string {
 	s := ""
 	if m.Temperature != nil {
-		s += fmt.Sprintf("temp=%g ", *m.Temperature)
+		s += fmt.Sprintf("temperature=%g ", *m.Temperature)
 	}
 	if m.Reasoning != "" {
 		s += "reasoning=" + m.Reasoning
