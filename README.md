@@ -95,17 +95,22 @@ regenerated with defaults.
 
 ## Setup
 
-Only step required: give the default provider (`openrouter.json`) an API key.
-Either export an environment variable (recommended):
+### API key
+
+Configure a key for the provider you want to use — every provider has its own
+key settings. For the default provider (`openrouter.json`) either export the
+environment variable (recommended):
 
 ```
 export OPENROUTER_API_KEY="sk-or-..."
 ```
 
-or put the key inline in `providers/openrouter.json`:
+or put the key inline in `providers/openrouter.json` (the generated file,
+with `api_key` added):
 
 ```json
 {
+  "api_key_env": "OPENROUTER_API_KEY",
   "api_key": "sk-or-...",
   "models": [
     {
@@ -118,16 +123,25 @@ or put the key inline in `providers/openrouter.json`:
 }
 ```
 
+`api_key_env` names the environment variable the key is read from; the inline
+`api_key` is used only when that variable is empty. Same pattern for
+`openai.json` (`OPENAI_API_KEY`); `lmstudio.json` talks to a local endpoint
+and needs no key.
+
+### Model selection
+
+Every model in a provider file gets a short `tag`. `default_model_tag` in
+`config.json` determines which model is used when you run `cluesh` without a
+flag; `--llm <tag>` overrides it for that run:
+
+```
+cluesh "count lines in *.go"            default_model_tag applies
+cluesh --llm lms-gemma "count lines"    that tag for this run only
+```
+
 `temperature` and `reasoning` (`none`|`low`|`medium`|`high`) are optional per
 model; unset fields are not sent at all, since some models and providers reject
 them (e.g. OpenAI reasoning models reject `temperature` for model `gpt-5.6-luna`).
-
-If both are configured, the environment variable wins; the inline `api_key`
-is used only when the env var is empty.
-
-Each model gets a short `tag`; `default_model_tag` in `config.json` selects the
-one used when no flag overrides it. Add more models per provider file
-(`openai.json`, `lmstudio.json` — local models need no key).
 
 Main settings in `config.json`:
 
@@ -136,7 +150,7 @@ Main settings in `config.json`:
 | `default_model_tag`       | model tag used when `--llm` is not given      | `or-glm53flash` |
 | `put_cmd_in_clipboard`    | `always` \| `never` \| `read-only`            | `always` |
 | `colors`                  | `dark` \| `light` \| `none` (`NO_COLOR` wins) | `dark` |
-| `execution_timeout_minutes` | agent timeout per run.                      | `5` |
+| `execution_timeout_minutes` | agent timeout per run                       | `5` |
 
 ## Usage
 
