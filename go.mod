@@ -1,4 +1,4 @@
-module cluesh
+module github.com/dbedla/cluesh
 
 go 1.27.1
 
