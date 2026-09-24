@@ -1,45 +1,78 @@
 # cluesh
 
-Natural-language demand in, one copy-paste-ready bash command out.
+Natural-language demand in, one copy-paste-ready bash command out —
+explained flag by flag, every time.
+
+in:  natural-language ask for a bash command
+out: one copy-paste-ready bash command, plus a structured explanation
+     of every subcommand, flag and argument
+
+![cluesh dark-mode output](doc/darkmode.png)
+
+<details>
+<summary>Full output as text</summary>
 
 ```
-$ cluesh "find all go files with more than 100 lines"
-=========
+$ cluesh "get all .go files with more then 10 lines"                       
 
-find . -name '*.go' -exec sh -c 'lines=$(wc -l < "$1"); [ "$lines" -gt 100 ] && echo "$1"' _ {} \;
+Model: z-ai/glm-5.3-flash
+temperature=0.4 reasoning=low
+===
+
+find . -name '*.go' -exec wc -l {} \; | awk '$1>10'
 
 	find
 		 .
 		  search current directory recursively
 		 -name
-		  match files by name pattern
-		 '*.go'
-		  only Go source files
+		  match files ending in .go
+		 *.go
+		  the glob pattern for Go files
 		 -exec
-		  run a shell check for each file
-		 sh -c 'lines=$(wc -l < "$1"); [ "$lines" -gt 100 ] && echo "$1"'
-		  count lines with wc -l and print file if more than 100
-		 _
-		  placeholder for $0 in sh -c
+		  execute wc for each found file
+		 wc
+		  the command to run
+		 -l
+		  print line counts
 		 {}
-		  current file path passed as $1
-		 \;
+		  placeholder for the found filename
+		 ;
 		  terminate the -exec command
 
-Uses a small sh -c wrapper since find's -exec cannot do numeric comparisons directly. Alternative: find . -name '*.go' | xargs wc -l | awk '$1>100 && $2!="total"{print $2}' — but the find -exec version handles filenames with spaces correctly.
+	awk
+		 $1>10
+		  keep only lines where first field (line count) is greater than 10
 
+wc -l prints 'N filename'; awk filters files with more than 10 lines. Note: wc -l output for a single file has no leading spaces, so $1 is the count.
+
+info: tokens: in 192 (cached 0), out 245 (reasoning 0), total 437, cost $0.00004294
+LLM claim: <no file modification>
 info: command in clipboard
 
 ```
 
-cluesh sends your demand to a cheap LLM (OpenRouter, OpenAI or a local LM Studio
-endpoint) and prints a colored explanation of every subcommand and flag of the
-resulting command, plus the final one-liner — ready to paste.
+</details>
+
+You don't need a 200-flag generalist agent to run one command. `cluesh` sends
+your demand to a cheap LLM (OpenRouter, OpenAI or a local LM Studio endpoint)
+and prints a colored explanation of every subcommand and flag of the resulting
+command, plus the final one-liner — ready to paste. It never executes anything
+itself; the only side effect is your clipboard.
+
+Providers and models are plain JSON under `~/.cluesh/providers/` — add whatever
+you need, switch with `--llm <tag>` per run.
+
+cluesh is part of the **#agent-of-rellm** family: small agents that do one job
+well. LLM communication runs on [rellm](https://github.com/dbedla/rellm) — a
+lightweight Go framework for building specialized agents on the OpenAI
+Responses API (LM Studio, OpenAI, OpenRouter).
+
+Source: <https://github.com/dbedla/cluesh>
 
 ## Install
 
 ```
-go install github.com/dbedla/cluesh.git@latest
+go install github.com/dbedla/cluesh/cmd/cluesh@latest
 ```
 
 ## First run
@@ -56,19 +89,28 @@ conversation.jsonl   persisted conversation (created on the first ask)
 Every missing file is generated with default settings and reported:
 `created /home/you/.cluesh/config.json`. Existing files are never overwritten.
 
+Mess up a config file? Remove or rename it and run `cluesh` again — the file is
+regenerated with defaults.
+
+
 ## Setup
 
-Only step required: give the default provider (`openrouter.json`) an API key.
-Either export an environment variable (recommended):
+### API key
+
+Configure a key for the provider you want to use — every provider has its own
+key settings. For the default provider (`openrouter.json`) either export the
+environment variable (recommended):
 
 ```
 export OPENROUTER_API_KEY="sk-or-..."
 ```
 
-or put the key inline in `providers/openrouter.json`:
+or put the key inline in `providers/openrouter.json` (the generated file,
+with `api_key` added):
 
 ```json
 {
+  "api_key_env": "OPENROUTER_API_KEY",
   "api_key": "sk-or-...",
   "models": [
     {
@@ -81,13 +123,25 @@ or put the key inline in `providers/openrouter.json`:
 }
 ```
 
+`api_key_env` names the environment variable the key is read from; the inline
+`api_key` is used only when that variable is empty. Same pattern for
+`openai.json` (`OPENAI_API_KEY`); `lmstudio.json` talks to a local endpoint
+and needs no key.
+
+### Model selection
+
+Every model in a provider file gets a short `tag`. `default_model_tag` in
+`config.json` determines which model is used when you run `cluesh` without a
+flag; `--llm <tag>` overrides it for that run:
+
+```
+cluesh "count lines in *.go"            default_model_tag applies
+cluesh --llm lms-gemma "count lines"    that tag for this run only
+```
+
 `temperature` and `reasoning` (`none`|`low`|`medium`|`high`) are optional per
 model; unset fields are not sent at all, since some models and providers reject
 them (e.g. OpenAI reasoning models reject `temperature` for model `gpt-5.6-luna`).
-
-Each model gets a short `tag`; `default_model_tag` in `config.json` selects the
-one used when no flag overrides it. Add more models per provider file
-(`openai.json`, `lmstudio.json` — local models need no key).
 
 Main settings in `config.json`:
 
@@ -96,7 +150,7 @@ Main settings in `config.json`:
 | `default_model_tag`       | model tag used when `--llm` is not given      | `or-glm53flash` |
 | `put_cmd_in_clipboard`    | `always` \| `never` \| `read-only`            | `always` |
 | `colors`                  | `dark` \| `light` \| `none` (`NO_COLOR` wins) | `dark` |
-| `execution_timeout_minutes` | agent timeout per run.                      | `5` |
+| `execution_timeout_minutes` | agent timeout per run                       | `5` |
 
 ## Usage
 
@@ -126,15 +180,20 @@ Flags:
       --llm string   use model with tag <tag> this run (default_model_tag if unset)
       --llm-list     list configured models and exit
 
-Config location: /home/you/.cluesh
-  config.json   main settings (default model, clipboard mode, colors, timeout)
-  sysprompt.md   system prompt
-  providers/   one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
-  conversation.jsonl   persisted conversation (created on first ask)
+https://github.com/dbedla/cluesh — #agent-of-rellm
+https://github.com/dbedla/rellm — LLM communication framework
+Detailed info: README.md
+
+Config location: ~/.cluesh
+  config.json         main settings (default model, clipboard mode, colors, timeout)
+  sysprompt.md        system prompt
+  providers/          one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
+  conversation.jsonl  persisted conversation (created on first ask)
 
 API key setup (per provider file, e.g. providers/openrouter.json):
   "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)
   "api_key": "sk-..."                   inline in the provider file (last resort)
+  both set? the environment variable wins
 ```
 
 ## Models list

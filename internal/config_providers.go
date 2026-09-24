@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/dbedla/rellm/pkg/rellm"
-	"github.com/joho/godotenv"
 )
 
 // ProvidersDir is the subdirectory of ConfigDir holding one JSON file per
@@ -33,7 +32,7 @@ type ModelConfigData struct {
 func (m ModelConfigData) Sampling() string {
 	s := ""
 	if m.Temperature != nil {
-		s += fmt.Sprintf("temp=%g ", *m.Temperature)
+		s += fmt.Sprintf("temperature=%g ", *m.Temperature)
 	}
 	if m.Reasoning != "" {
 		s += "reasoning=" + m.Reasoning
@@ -437,10 +436,8 @@ func resolveAPIKey(provider, envName, inline string) (string, error) {
 	return "", fmt.Errorf("%s: no api key configured — set api_key_env or api_key in providers/%s.json", provider, provider)
 }
 
-// envAPIKey reads an api key from an environment variable (tolerating a
-// missing .env file — the value may come from the shell itself).
+// envAPIKey reads an api key from an environment variable.
 func envAPIKey(provider, envName string) (string, error) {
-	_ = godotenv.Load()
 	if v := os.Getenv(envName); v != "" {
 		return v, nil
 	}
