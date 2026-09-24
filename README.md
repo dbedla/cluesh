@@ -13,37 +13,39 @@ out: one copy-paste-ready bash command, plus a structured explanation
 <summary>Full output as text</summary>
 
 ```
-$ cluesh "list all .go files with more than 10 lines" --llm oai-luna
+$ cluesh "get all .go files with more then 10 lines"                       
 
-Model: gpt-5.6-luna
-reasoning=low
-====
+Model: z-ai/glm-5.3-flash
+temperature=0.4 reasoning=low
+===
 
-find . -type f -name '*.go' -exec awk 'FNR > 10 {print FILENAME; nextfile}' {} +
+find . -name '*.go' -exec wc -l {} \; | awk '$1>10'
 
 	find
 		 .
-		  Search from the current directory
-		 -type
-		  Restrict matches to files of a specified type
-		 f
-		  Match regular files
+		  search current directory recursively
 		 -name
-		  Match filenames by pattern
+		  match files ending in .go
 		 *.go
-		  Match Go source files
+		  the glob pattern for Go files
 		 -exec
-		  Run a command on the matched files
-		 awk 'FNR > 10 {print FILENAME; nextfile}'
-		  Print each Go filename once it has more than 10 lines
+		  execute wc for each found file
+		 wc
+		  the command to run
+		 -l
+		  print line counts
 		 {}
-		  Placeholder for matched filenames
-		 +
-		  Pass multiple matched files to each awk invocation
+		  placeholder for the found filename
+		 ;
+		  terminate the -exec command
 
-Lists .go files containing more than 10 lines, including filenames with spaces.
+	awk
+		 $1>10
+		  keep only lines where first field (line count) is greater than 10
 
-info: tokens: in 341 (cached 0), out 455 (reasoning 240), total 796
+wc -l prints 'N filename'; awk filters files with more than 10 lines. Note: wc -l output for a single file has no leading spaces, so $1 is the count.
+
+info: tokens: in 192 (cached 0), out 245 (reasoning 0), total 437, cost $0.00004294
 LLM claim: <no file modification>
 info: command in clipboard
 
