@@ -63,7 +63,7 @@ Source: <https://github.com/dbedla/cluesh>
 ## Install
 
 ```
-go install github.com/dbedla/cluesh.git@latest
+go install github.com/dbedla/cluesh/cmd/cluesh@latest
 ```
 
 ## First run

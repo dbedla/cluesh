@@ -1,7 +1,7 @@
 package main
 
 import (
-	cluesh "github.com/dbedla/cluesh/src"
+	cluesh "github.com/dbedla/cluesh/internal"
 	"context"
 	"fmt"
 	"os"
