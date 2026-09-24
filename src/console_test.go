@@ -24,7 +24,8 @@ func TestPrintLayout(t *testing.T) {
 		}},
 		Notes: "note",
 	})
-	w.Close()
+	err = w.Close()
+	assert.NoError(t, err)
 	os.Stdout = old
 
 	out, err := io.ReadAll(r)
@@ -33,6 +34,8 @@ func TestPrintLayout(t *testing.T) {
 }
 
 func TestConsoleByName(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+
 	// dark / light / none each map to their mode
 	assert.IsType(t, &DarkMode{}, ConsoleByName("dark"))
 	assert.IsType(t, &LightMode{}, ConsoleByName("light"))

@@ -3,10 +3,10 @@ package cluesh
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
+	"strings"
 
 	flag "github.com/spf13/pflag"
 )
@@ -21,7 +21,7 @@ type Params struct {
 }
 
 // newFlagSet registers every flag with its full help description. The
-// descriptions are the help content — ParseParams and PrintHelp share this
+// descriptions are the help content — ParseParams and GetHelp share this
 // one definition.
 func newFlagSet() (*flag.FlagSet, *Params) {
 	var p Params
@@ -46,7 +46,7 @@ func ParseParams(args []string) (Params, error) {
 
 	positional := fs.Args()
 	// --llm-list and --help are informational runs: the demand is optional.
-	if len(positional) != 1 && !(p.LLMList && len(positional) == 0) && !(p.Help && len(positional) == 0) {
+	if len(positional) > 1 || (len(positional) == 0 && !p.LLMList && !p.Help) {
 		return Params{}, errors.New("usage: cluesh [-c] \"<demand>\" — exactly one prompt argument required (see --help)")
 	}
 	if len(positional) == 1 {
@@ -55,26 +55,29 @@ func ParseParams(args []string) (Params, error) {
 	return *p, nil
 }
 
-// PrintHelp writes usage, the generated flag list (pflag PrintDefaults), the
-// config location and key setup. baseDir is resolved by the caller — help
-// must work even when the config is missing or broken.
-func PrintHelp(w io.Writer, baseDir string) {
+// GetHelp returns usage, the generated flag list (pflag PrintDefaults), the
+// config location and key setup. baseDir is resolved by the caller so help
+// works even when the config is missing or broken.
+func GetHelp(baseDir string) string {
+	var help strings.Builder
 	fs, _ := newFlagSet()
-	fmt.Fprintf(w, "cluesh — natural-language demand in, one copy-paste-ready bash command out\n")
-	fmt.Fprintf(w, "usage: cluesh [-c] [--llm <tag>] \"<demand>\"\n\nFlags:\n")
-	fs.SetOutput(w)
+	help.WriteString("cluesh — natural-language demand in, one copy-paste-ready bash command out\n")
+	help.WriteString("usage: cluesh [-c] [--llm <tag>] \"<demand>\"\n\nFlags:\n")
+	fs.SetOutput(&help)
 	fs.PrintDefaults()
 
-	fmt.Fprintf(w, "\nConfig location: %s\n", baseDir)
-	fmt.Fprintf(w, "  %s   main settings (default model, clipboard mode, colors, timeout)\n", ConfigFileName)
-	fmt.Fprintf(w, "  %s   system prompt\n", SysPromptFileName)
-	fmt.Fprintf(w, "  %s   one JSON file per provider (openrouter.json, openai.json, lmstudio.json)\n", ProvidersDir+"/")
-	fmt.Fprintf(w, "  %s   persisted conversation (created on first ask)\n", ConversationFileName)
-
-	fmt.Fprintf(w, "\nAPI key setup (per provider file, e.g. providers/openrouter.json):\n")
-	fmt.Fprintf(w, `  "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)
+	help.WriteString("\nConfig location: " + baseDir + "\n")
+	help.WriteString("  " + ConfigFileName + "   main settings (default model, clipboard mode, colors, timeout)\n")
+	help.WriteString("  " + SysPromptFileName + "   system prompt\n")
+	help.WriteString("  " + ProvidersDir + "/   one JSON file per provider (openrouter.json, openai.json, lmstudio.json)\n")
+	help.WriteString("  " + ConversationFileName + "   persisted conversation (created on first ask)\n")
+	help.WriteString(`
+API key setup (per provider file, e.g. providers/openrouter.json):
+  "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)
   "api_key": "sk-..."                   inline in the provider file (last resort)
 `)
+
+	return help.String()
 }
 
 // StartFresh deletes the conversation file so the next run starts empty.
