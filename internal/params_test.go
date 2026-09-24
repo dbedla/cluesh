@@ -70,7 +70,7 @@ func TestGetHelp(t *testing.T) {
 		"usage: cluesh", "-c, --continue", "--llm-list", "--llm", "-h, --help",
 		"config.json", "sysprompt.md", "conversation.jsonl", "openrouter.json",
 		"api_key_env", baseDir, "https://github.com/dbedla/cluesh",
-		"https://github.com/dbedla/rellm", "README.md",
+		"https://github.com/dbedla/rellm", "https://rellm.dev/agents/cluesh", "https://rellm.dev",
 	} {
 		assert.Contains(t, out, want)
 	}

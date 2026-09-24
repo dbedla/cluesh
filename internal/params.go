@@ -77,9 +77,11 @@ func GetHelp(baseDir string) string {
 	fs.SetOutput(&help)
 	fs.PrintDefaults()
 
-	help.WriteString("\nhttps://github.com/dbedla/cluesh — #agent-of-rellm\n")
+	help.WriteString("\nDetailed info:\n")
+	help.WriteString("https://rellm.dev/agents/cluesh — cluesh homepage\n")
+	help.WriteString("https://github.com/dbedla/cluesh — #agent-of-rellm\n")
+	help.WriteString("https://rellm.dev — rellm homepage\n")
 	help.WriteString("https://github.com/dbedla/rellm — LLM communication framework\n")
-	help.WriteString("Detailed info: README.md\n")
 
 	help.WriteString("\nConfig location: " + shortenHome(baseDir) + "\n")
 	files := []struct{ name, desc string }{

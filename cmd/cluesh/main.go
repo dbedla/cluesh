@@ -1,9 +1,9 @@
 package main
 
 import (
-	cluesh "github.com/dbedla/cluesh/internal"
 	"context"
 	"fmt"
+	cluesh "github.com/dbedla/cluesh/internal"
 	"os"
 	"time"
 
