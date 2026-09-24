@@ -50,3 +50,26 @@ func TestLoadConfigTimeout(t *testing.T) {
 	// no ceiling: a user willing to wait 123 minutes may
 	assert.NoError(t, load(t.TempDir(), 123))
 }
+
+func TestIsFirstRun(t *testing.T) {
+	dir := t.TempDir()
+
+	missing := filepath.Join(dir, "nope")
+	if !IsFirstRun(missing) {
+		t.Fatal("missing dir should be first run")
+	}
+
+	empty := filepath.Join(dir, "empty")
+	err := os.MkdirAll(empty, 0o755)
+	assert.NoError(t, err)
+	if !IsFirstRun(empty) {
+		t.Fatal("empty dir should be first run")
+	}
+
+	if err := os.WriteFile(filepath.Join(empty, "config.json"), []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if IsFirstRun(empty) {
+		t.Fatal("dir with a file should not be first run")
+	}
+}
