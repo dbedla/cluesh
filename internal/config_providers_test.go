@@ -19,7 +19,7 @@ func TestLLMListMarked(t *testing.T) {
 	// default templates: or-glm53flash is openrouter's single model
 	assert.Equal(t, []string{
 		"openrouter.json",
-		"\tor-glm53flash\tz-ai/glm-5.3-flash\ttemp=0.4 reasoning=low\t(default)",
+		"\tor-glm53flash\tz-ai/glm-5.3-flash\ttemperature=0.4 reasoning=low\t(default)",
 		"openai.json",
 		"\toai-luna\tgpt-5.6-luna\treasoning=low",
 		"lmstudio.json",
@@ -34,7 +34,7 @@ func TestLLMListMarkedUnknownDefault(t *testing.T) {
 	// unknown default tag: rendered, nothing marked
 	assert.Equal(t, []string{
 		"openrouter.json",
-		"\tor-glm53flash\tz-ai/glm-5.3-flash\ttemp=0.4 reasoning=low",
+		"\tor-glm53flash\tz-ai/glm-5.3-flash\ttemperature=0.4 reasoning=low",
 		"openai.json",
 		"\toai-luna\tgpt-5.6-luna\treasoning=low",
 		"lmstudio.json",
@@ -132,8 +132,8 @@ func TestBuildByTag(t *testing.T) {
 
 func TestModelSampling(t *testing.T) {
 	temp := 0.4
-	assert.Equal(t, "temp=0.4 reasoning=low", ModelConfigData{Temperature: &temp, Reasoning: "low"}.Sampling())
-	assert.Equal(t, "temp=0.4", ModelConfigData{Temperature: &temp}.Sampling())
+	assert.Equal(t, "temperature=0.4 reasoning=low", ModelConfigData{Temperature: &temp, Reasoning: "low"}.Sampling())
+	assert.Equal(t, "temperature=0.4", ModelConfigData{Temperature: &temp}.Sampling())
 	assert.Equal(t, "reasoning=high", ModelConfigData{Reasoning: "high"}.Sampling())
 	assert.Equal(t, "", ModelConfigData{}.Sampling()) // unset → nothing sent
 }

@@ -95,6 +95,7 @@ func GetHelp(baseDir string) string {
 API key setup (per provider file, e.g. providers/openrouter.json):
   "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)
   "api_key": "sk-..."                   inline in the provider file (last resort)
+  both set? the environment variable wins
 `)
 
 	return help.String()

@@ -113,6 +113,9 @@ or put the key inline in `providers/openrouter.json`:
 model; unset fields are not sent at all, since some models and providers reject
 them (e.g. OpenAI reasoning models reject `temperature` for model `gpt-5.6-luna`).
 
+If both are configured, the environment variable wins; the inline `api_key`
+is used only when the env var is empty.
+
 Each model gets a short `tag`; `default_model_tag` in `config.json` selects the
 one used when no flag overrides it. Add more models per provider file
 (`openai.json`, `lmstudio.json` — local models need no key).
@@ -167,6 +170,7 @@ Config location: ~/.cluesh
 API key setup (per provider file, e.g. providers/openrouter.json):
   "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)
   "api_key": "sk-..."                   inline in the provider file (last resort)
+  both set? the environment variable wins
 ```
 
 ## Models list
