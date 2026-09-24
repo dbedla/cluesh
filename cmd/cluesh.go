@@ -22,7 +22,7 @@ func main() {
 	}
 
 	if parseParams.Help {
-		cluesh.PrintHelp(os.Stdout, baseDir)
+		fmt.Print(cluesh.GetHelp(baseDir))
 		return
 	}
 

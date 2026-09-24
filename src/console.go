@@ -39,7 +39,10 @@ type Console interface {
 // the package-level color.Red etc. — does NOT auto-append a newline. Print
 // owns every newline, so modes never add or double one.
 func colored(c *color.Color) func(format string, a ...interface{}) {
-	return func(format string, a ...interface{}) { c.Printf(format, a...) }
+	return func(format string, a ...interface{}) {
+		// Console does not expose write errors; match the plain fmt.Printf mode.
+		_, _ = c.Printf(format, a...)
+	}
 }
 
 // DarkMode — colors tuned for dark terminals.

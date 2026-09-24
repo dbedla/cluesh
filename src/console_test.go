@@ -34,6 +34,8 @@ func TestPrintLayout(t *testing.T) {
 }
 
 func TestConsoleByName(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+
 	// dark / light / none each map to their mode
 	assert.IsType(t, &DarkMode{}, ConsoleByName("dark"))
 	assert.IsType(t, &LightMode{}, ConsoleByName("light"))

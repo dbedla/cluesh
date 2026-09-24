@@ -3,7 +3,6 @@ package cluesh
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,11 +62,9 @@ func TestStartFresh(t *testing.T) {
 	assert.NoError(t, StartFresh(path))
 	assert.NoFileExists(t, path)
 }
-func TestPrintHelp(t *testing.T) {
+func TestGetHelp(t *testing.T) {
 	baseDir := t.TempDir()
-	var buf strings.Builder
-	PrintHelp(&buf, baseDir)
-	out := buf.String()
+	out := GetHelp(baseDir)
 
 	for _, want := range []string{
 		"usage: cluesh", "-c, --continue", "--llm-list", "--llm", "-h, --help",
