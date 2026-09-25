@@ -42,8 +42,8 @@
 //
 // # Links
 //
-// GitHub:       https://github.com/dbedla/cluesh
-// Tutorial:     https://github.com/dbedla/cluesh/blob/main/doc/tutorial.md
-// Homepage:     https://rellm.dev/agents/cluesh
-// rellm:        https://rellm.dev (https://github.com/dbedla/rellm)
+// - GitHub, https://github.com/dbedla/cluesh
+// - Tutorial, https://github.com/dbedla/cluesh/blob/main/doc/tutorial.md
+// - Homepage, https://rellm.dev/agents/cluesh
+// - rellm, https://github.com/dbedla/rellm
 package main
