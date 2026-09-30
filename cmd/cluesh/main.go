@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
+	"strings"
 	"time"
 
 	cluesh "github.com/dbedla/cluesh/internal"
@@ -83,11 +87,33 @@ func main() {
 	}
 
 	q := parseParams.Prompt
+	// -e/--explain: argument wins, else $EDITOR on a terminal, else stdin
+	// (file/pipe). The shell does no expansion in the editor or stdin path,
+	// so quoting passes through raw.
+	if parseParams.Explain {
+		if q == "" {
+			var err error
+			if isTerminal(os.Stdin) {
+				q, err = readFromEditor()
+			} else {
+				var b []byte
+				b, err = io.ReadAll(os.Stdin)
+				q = strings.TrimSpace(string(b))
+			}
+			if err != nil {
+				exit(err)
+			}
+			if q == "" {
+				exit(errors.New("no command to explain"))
+			}
+		}
+		// drift alarm: show what actually arrived, before paying for the call
+		fmt.Printf("info: explaining: %s\n", q)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(mainCfg.ExecutionTimeoutMinutes)*time.Minute)
 	defer cancel()
 
-	fmt.Printf("dbg: Q: %s\n", q)
 	prompt, err := buildPrompt(q, metaProvider.ModelConfig)
 	if err != nil {
 		exit(err)
@@ -172,6 +198,47 @@ func buildPrompt(q string, m cluesh.ModelConfigData) (*rellm.Prompt, error) {
 func exit(err error) {
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
+}
+
+// isTerminal reports whether f is attached to a character device (a
+// terminal) rather than a file or pipe.
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
+
+// readFromEditor opens $VISUAL, $EDITOR (fallback: vi) on a temp file and
+// returns its contents after the editor exits. The file is removed after.
+func readFromEditor() (string, error) {
+	f, err := os.CreateTemp("", "cluesh-*.sh")
+	if err != nil {
+		return "", err
+	}
+	path := f.Name()
+	defer os.Remove(path)
+	if err := f.Close(); err != nil {
+		return "", err
+	}
+
+	editor := os.Getenv("VISUAL")
+	if editor == "" {
+		editor = os.Getenv("EDITOR")
+	}
+	if editor == "" {
+		editor = "vi"
+	}
+	// run via sh so $EDITOR values with arguments (e.g. "code -w") work
+	cmd := exec.Command("sh", "-c", editor+" \"$@\"", editor, path)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("editor %q: %w", editor, err)
+	}
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(b)), nil
 }
 
 // printUsage prints the token/cost summary line; silent without stats.

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `-e` / `--explain` flag: explain an existing command. Three input paths:
+  as argument (`cluesh -e "ls -l"`), in `$EDITOR` (no argument, terminal;
+  fallback `vi`), or from stdin (`cluesh -e < mycmd.sh`, `cat f | cluesh -e`).
+  The shell does no expansion in the editor/stdin paths; `info: explaining:
+  <command>` is echoed before the LLM call as a drift alarm
+- "Passing commands safely" section in README and `doc.go`: single quotes prevent
+  shell expansion of `$()`, backticks and globs; `--` marker for demands
+  starting with `-`
+
 ## [v0.1.1] - 2026-09-24
 
 ### Added
