@@ -91,27 +91,10 @@ func main() {
 	// (file/pipe). The shell does no expansion in the editor or stdin path,
 	// so quoting passes through raw.
 	if parseParams.Explain {
-		if q == "" {
-			var err error
-			if isTerminal(os.Stdin) {
-				q, err = readFromEditor()
-			} else {
-				var b []byte
-				b, err = io.ReadAll(os.Stdin)
-				q = strings.TrimSpace(string(b))
-			}
-			if err != nil {
-				exit(err)
-			}
-			if q == "" {
-				exit(errors.New("no command to explain"))
-			}
+		q, err = promptForExplainFlow(q)
+		if err != nil {
+			exit(err)
 		}
-		// drift alarm: show what actually arrived, before paying for the call
-		fmt.Printf("info: explaining: %s\n", q)
-		// deterministic mode signal: the sysprompt describes both modes, this
-		// prefix tells the LLM which one this run is
-		q = explainMessage(q)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(mainCfg.ExecutionTimeoutMinutes)*time.Minute)
@@ -145,6 +128,32 @@ func main() {
 			fmt.Println("info: command in clipboard")
 		}
 	}
+}
+
+func promptForExplainFlow(q string) (string, error) {
+	if q == "" {
+		var err error
+		if isTerminal(os.Stdin) {
+			q, err = readFromEditor()
+		} else {
+			var b []byte
+			b, err = io.ReadAll(os.Stdin)
+			q = strings.TrimSpace(string(b))
+		}
+		if err != nil {
+			return "", err
+		}
+		if q == "" {
+			return "", errors.New("no command to explain")
+		}
+	}
+	// drift alarm: show what actually arrived, before paying for the call
+	fmt.Printf("info: explaining: %s\n", q)
+	// deterministic mode signal: the sysprompt describes both modes, this
+	// prefix tells the LLM which one this run is
+	q = explainMessage(q)
+
+	return q, nil
 }
 
 func firstRun(baseDir string) {
@@ -219,13 +228,17 @@ func isTerminal(f *os.File) bool {
 
 // readFromEditor opens $VISUAL, $EDITOR (fallback: vi) on a temp file and
 // returns its contents after the editor exits. The file is removed after.
-func readFromEditor() (string, error) {
+func readFromEditor() (_ string, finalError error) {
 	f, err := os.CreateTemp("", "cluesh-*.sh")
 	if err != nil {
 		return "", err
 	}
 	path := f.Name()
-	defer os.Remove(path)
+	defer func() {
+		rmErr := os.Remove(path)
+		finalError = errors.Join(finalError, rmErr)
+	}()
+
 	if err := f.Close(); err != nil {
 		return "", err
 	}
