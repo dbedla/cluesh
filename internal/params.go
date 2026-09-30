@@ -17,6 +17,7 @@ type Params struct {
 	Continue bool   // -c: continue last conversation
 	LLMList  bool   // --llm-list: list configured models and exit
 	LLMTag   string // --llm: model tag to use for this run
+	Explain  bool   // --explain: command to explain comes from stdin
 	Help     bool   // --help: show help and exit
 	Prompt   string // the positional demand
 }
@@ -30,6 +31,7 @@ func newFlagSet() (*flag.FlagSet, *Params) {
 	fs.BoolVarP(&p.Continue, "continue", "c", false, "continue last conversation")
 	fs.BoolVar(&p.LLMList, "llm-list", false, "list configured models and exit")
 	fs.StringVarP(&p.LLMTag, "llm", "", "", "use model with tag <tag> this run (default_model_tag if unset)")
+	fs.BoolVarP(&p.Explain, "explain", "e", false, "explain a command: as argument ('ls -l'), in $EDITOR (no argument, terminal), or from stdin (file/pipe) — quoting passes through raw")
 	fs.BoolVarP(&p.Help, "help", "h", false, "show help and exit")
 	return fs, &p
 }
@@ -46,12 +48,13 @@ func ParseParams(args []string) (Params, error) {
 	}
 
 	positional := fs.Args()
-	// --llm-list and --help are informational runs: the demand is optional.
-	if len(positional) > 1 || (len(positional) == 0 && !p.LLMList && !p.Help) {
-		return Params{}, errors.New("usage: cluesh [-c] \"<demand>\" — exactly one prompt argument required (see --help)")
-	}
-	if len(positional) == 1 {
+	// -e/--explain accepts one optional positional: the command to explain.
+	if len(positional) > 0 {
 		p.Prompt = positional[0]
+	}
+	// --llm-list and --help are informational runs: the demand is optional.
+	if len(positional) > 1 || (len(positional) == 0 && !p.LLMList && !p.Help && !p.Explain) {
+		return Params{}, errors.New("usage: cluesh [-c] [-e [\"<command>\"]] \"<demand>\" — exactly one prompt argument required (see --help)")
 	}
 	return *p, nil
 }
@@ -73,7 +76,7 @@ func GetHelp(baseDir string) string {
 	var help strings.Builder
 	fs, _ := newFlagSet()
 	help.WriteString("cluesh — natural-language demand in, one copy-paste-ready bash command out\n")
-	help.WriteString("\nusage: cluesh [-c] [--llm <tag>] \"<demand>\"\n\nFlags:\n")
+	help.WriteString("\nusage: cluesh [-c] [--llm <tag>] \"<demand>\"       generate a command\n       cluesh [-e [\"<command>\"]]                  explain one: argument, $EDITOR or stdin\n\nExamples:\n\n  cluesh \"list all png files larger than 1MB\"     generate a command\n  cluesh -e \"ls -l\"                            explain this simple command\n  cluesh -e                                     paste/edit a command in $EDITOR\n  cluesh -e < mycmd.sh                           explain a command from a file\n  cat mycmd.sh | cluesh -e                       same, piped\n\nFlags:\n")
 	fs.SetOutput(&help)
 	fs.PrintDefaults()
 

@@ -12,21 +12,32 @@ import (
 // ProgramSysPrompt is the built-in sys prompt. It is written into a freshly
 // generated config and cluesh always reads the sys prompt from config after
 // that — this constant is the single source of the default.
-const ProgramSysPrompt = `# Task
+const ProgramSysPrompt = `
+# Domain Expertise
+Bash, Zsh, Shell Scripting (sh/csh/tcsh), PowerShell, and general command-line interfaces.
 
-Provide one final bash command (or bash command combination) which fulfills the requested demand. You are a bash expert.
-The answer must be a oneline copy-paste ready bash command.
+# Task
+
+Your task is to process one of two types of input provided by the user:
+
+1. **Command Generation**: If the user provides a natural language description, generate a single, optimized, one-line, copy-paste ready command that fulfills the request.
+2. **Command Explanation**: If the user provides an existing command, analyze it and explain its functionality by deconstructing its components. Do not evaluate correctness just explain all arguments.
 
 # Rules
 
-- Prefer these commands where possible: find, grep, cut, sort, uniq, xargs, wc, head, cat, less, tail, wc, ls, tree.
-- No loops and ifs unless absolutely necessary.
-- Placeholder in example should be as short as possible.
-- sub_commands must list EVERY command of the pipeline in order, including the first, each with ALL its arguments explained — e.g. "ls -la dir" → one sub_commands entry "ls" with arguments -l, -a, dir; never leave sub_commands empty.
+- **Optimization**: Prefer these utilities where possible: find, grep, cut, sort, uniq, xargs, wc, head, cat, less, tail, ls, tree.
+- **Simplicity**: Avoid control structures (loops, if/else) unless absolutely necessary for the task.
+- **Placeholders**: Use the shortest possible placeholders in any examples provided.
+- **Deconstruction (Crucial)**: Regardless of whether you are generating or explaining a command, you must populate the "sub_commands" field to break down the logic:
+    - Every component of the pipeline must be listed in sequential order.
+    - Each entry must include the base command and an explanation of ALL its arguments (e.g., "ls -la dir" -> one entry with command ls and arguments -l, -a, dir).
+    - Never leave the "sub_commands" field empty.
 
 # Output
 
-Return only JSON matching the given schema.`
+Return only JSON matching the given schema.
+
+`
 
 // ConfigDir is the single place where all cluesh configuration lives:
 // config.json (main), provider files, tools.json, last conversation.

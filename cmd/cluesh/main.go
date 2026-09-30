@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
+	"strings"
 	"time"
 
 	cluesh "github.com/dbedla/cluesh/internal"
@@ -83,6 +87,15 @@ func main() {
 	}
 
 	q := parseParams.Prompt
+	// -e/--explain: argument wins, else $EDITOR on a terminal, else stdin
+	// (file/pipe). The shell does no expansion in the editor or stdin path,
+	// so quoting passes through raw.
+	if parseParams.Explain {
+		q, err = promptForExplainFlow(q)
+		if err != nil {
+			exit(err)
+		}
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(mainCfg.ExecutionTimeoutMinutes)*time.Minute)
 	defer cancel()
@@ -117,6 +130,32 @@ func main() {
 	}
 }
 
+func promptForExplainFlow(q string) (string, error) {
+	if q == "" {
+		var err error
+		if isTerminal(os.Stdin) {
+			q, err = readFromEditor()
+		} else {
+			var b []byte
+			b, err = io.ReadAll(os.Stdin)
+			q = strings.TrimSpace(string(b))
+		}
+		if err != nil {
+			return "", err
+		}
+		if q == "" {
+			return "", errors.New("no command to explain")
+		}
+	}
+	// drift alarm: show what actually arrived, before paying for the call
+	fmt.Printf("info: explaining: %s\n", q)
+	// deterministic mode signal: the sysprompt describes both modes, this
+	// prefix tells the LLM which one this run is
+	q = explainMessage(q)
+
+	return q, nil
+}
+
 func firstRun(baseDir string) {
 	if _, _, err := cluesh.LoadConfig(baseDir); err != nil {
 		exit(err)
@@ -149,6 +188,13 @@ func printLLMClaimOnCmd(noFileModification bool) {
 	}
 }
 
+// explainMessage wraps the command with a mode-selecting prefix so the LLM
+// explains it instead of generating a new one — even with a customized
+// sysprompt that never mentions the explanation mode.
+func explainMessage(cmd string) string {
+	return "Explain this command; do not generate a new one:\n" + cmd
+}
+
 func buildPrompt(q string, m cluesh.ModelConfigData) (*rellm.Prompt, error) {
 	// per-model sampling: unset fields are simply not sent (some models, e.g.
 	// OpenAI reasoning models, reject unsupported parameters with a 400)
@@ -171,6 +217,51 @@ func buildPrompt(q string, m cluesh.ModelConfigData) (*rellm.Prompt, error) {
 func exit(err error) {
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
+}
+
+// isTerminal reports whether f is attached to a character device (a
+// terminal) rather than a file or pipe.
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
+
+// readFromEditor opens $VISUAL, $EDITOR (fallback: vi) on a temp file and
+// returns its contents after the editor exits. The file is removed after.
+func readFromEditor() (_ string, finalError error) {
+	f, err := os.CreateTemp("", "cluesh-*.sh")
+	if err != nil {
+		return "", err
+	}
+	path := f.Name()
+	defer func() {
+		rmErr := os.Remove(path)
+		finalError = errors.Join(finalError, rmErr)
+	}()
+
+	if err := f.Close(); err != nil {
+		return "", err
+	}
+
+	editor := os.Getenv("VISUAL")
+	if editor == "" {
+		editor = os.Getenv("EDITOR")
+	}
+	if editor == "" {
+		editor = "vi"
+	}
+	// run via sh so $EDITOR values with arguments (e.g. "code -w") work
+	cmd := exec.Command("sh", "-c", editor+" \"$@\"", editor, path)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("editor %q: %w", editor, err)
+	}
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(b)), nil
 }
 
 // printUsage prints the token/cost summary line; silent without stats.
