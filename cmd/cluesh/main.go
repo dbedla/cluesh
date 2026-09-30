@@ -87,6 +87,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(mainCfg.ExecutionTimeoutMinutes)*time.Minute)
 	defer cancel()
 
+	fmt.Printf("dbg: Q: %s\n", q)
 	prompt, err := buildPrompt(q, metaProvider.ModelConfig)
 	if err != nil {
 		exit(err)
