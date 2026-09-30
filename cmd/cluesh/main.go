@@ -109,6 +109,9 @@ func main() {
 		}
 		// drift alarm: show what actually arrived, before paying for the call
 		fmt.Printf("info: explaining: %s\n", q)
+		// deterministic mode signal: the sysprompt describes both modes, this
+		// prefix tells the LLM which one this run is
+		q = explainMessage(q)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(mainCfg.ExecutionTimeoutMinutes)*time.Minute)
@@ -174,6 +177,13 @@ func printLLMClaimOnCmd(noFileModification bool) {
 	} else {
 		color.Red("LLM claim: <some file will be modified>")
 	}
+}
+
+// explainMessage wraps the command with a mode-selecting prefix so the LLM
+// explains it instead of generating a new one — even with a customized
+// sysprompt that never mentions the explanation mode.
+func explainMessage(cmd string) string {
+	return "Explain this command; do not generate a new one:\n" + cmd
 }
 
 func buildPrompt(q string, m cluesh.ModelConfigData) (*rellm.Prompt, error) {
