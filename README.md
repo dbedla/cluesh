@@ -309,3 +309,11 @@ Windows) — install one of them, or set `put_cmd_in_clipboard`:
 | `never`      | never copy                                            |
 
 cluesh never executes commands itself.
+
+## Platform support
+
+Unix-like systems (Linux, macOS, WSL) are stable. Native Windows is
+**experimental**: the editor mode (`cluesh -e` without an argument) uses
+`cmd /c` with `$VISUAL`/`$EDITOR` and a `notepad` fallback, and the clipboard
+uses `clip.exe` — but the rest of the Windows path is not battle-tested.
+On Windows, prefer WSL, where everything works as on Linux.

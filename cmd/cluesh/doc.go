@@ -68,6 +68,13 @@
 // cluesh never executes commands itself; the only side effect is the
 // clipboard.
 //
+// # Platform support
+//
+// Unix-like systems (Linux, macOS, WSL) are stable. Native Windows is
+// experimental: editor mode uses cmd /c with VISUAL/EDITOR and a notepad
+// fallback, the clipboard uses clip.exe; on Windows prefer WSL, where
+// everything works as on Linux.
+//
 // # Links
 //
 // - GitHub, https://github.com/dbedla/cluesh

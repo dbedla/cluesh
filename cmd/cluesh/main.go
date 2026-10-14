@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -144,8 +146,9 @@ func promptForExplainFlow(q string) (string, error) {
 			return "", errors.New("no command to explain")
 		}
 	}
-	// drift alarm: show what actually arrived, before paying for the call
-	fmt.Printf("info: explaining: %s\n", q)
+	// drift alarm: show what actually arrived, before paying for the call.
+	// strconv.Quote neutralizes control/escape chars from untrusted input.
+	fmt.Printf("info: explaining: %s\n", strconv.Quote(q))
 	// deterministic mode signal: the sysprompt describes both modes, this
 	// prefix tells the LLM which one this run is
 	q = explainMessage(q)
@@ -223,8 +226,9 @@ func isTerminal(f *os.File) bool {
 	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
-// readFromEditor opens $VISUAL, $EDITOR (fallback: vi) on a temp file and
-// returns its contents after the editor exits. The file is removed after.
+// readFromEditor opens $VISUAL, $EDITOR (fallback: vi on Unix, notepad on
+// Windows) on a temp file and returns its contents after the editor exits.
+// The file is removed after.
 func readFromEditor() (_ string, finalError error) {
 	f, err := os.CreateTemp("", "cluesh-*.sh")
 	if err != nil {
@@ -244,11 +248,22 @@ func readFromEditor() (_ string, finalError error) {
 	if editor == "" {
 		editor = os.Getenv("EDITOR")
 	}
-	if editor == "" {
-		editor = "vi"
+	// Windows has no sh; cmd /c gives the same "editor value may contain
+	// arguments" behavior. WSL users run the Linux build, where this
+	// branch never executes.
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		if editor == "" {
+			editor = "notepad"
+		}
+		cmd = exec.Command("cmd", "/c", editor, path)
+	} else {
+		if editor == "" {
+			editor = "vi"
+		}
+		// run via sh so $EDITOR values with arguments (e.g. "code -w") work
+		cmd = exec.Command("sh", "-c", editor+" \"$@\"", editor, path)
 	}
-	// run via sh so $EDITOR values with arguments (e.g. "code -w") work
-	cmd := exec.Command("sh", "-c", editor+" \"$@\"", editor, path)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("editor %q: %w", editor, err)
