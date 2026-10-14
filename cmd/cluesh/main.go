@@ -67,6 +67,14 @@ func main() {
 		exit(err)
 	}
 
+	q := parseParams.Prompt
+	if parseParams.Explain {
+		q, err = promptForExplainFlow(q)
+		if err != nil {
+			exit(err)
+		}
+	}
+
 	convPath := cluesh.ConversationPath(baseDir)
 	if !parseParams.Continue {
 		if err := cluesh.StartFresh(convPath); err != nil {
@@ -84,17 +92,6 @@ func main() {
 	agent, err := cluesh.NewAgent(cfg)
 	if err != nil {
 		exit(err)
-	}
-
-	q := parseParams.Prompt
-	// -e/--explain: argument wins, else $EDITOR on a terminal, else stdin
-	// (file/pipe). The shell does no expansion in the editor or stdin path,
-	// so quoting passes through raw.
-	if parseParams.Explain {
-		q, err = promptForExplainFlow(q)
-		if err != nil {
-			exit(err)
-		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(mainCfg.ExecutionTimeoutMinutes)*time.Minute)
