@@ -92,6 +92,7 @@ New to cluesh? Follow the step-by-step walkthrough in
 6. [Run the first request](doc/tutorial.md#6-run-the-first-request)
 7. [Inspect the saved conversation](doc/tutorial.md#7-inspect-the-saved-conversation)
 8. [Continue the conversation](doc/tutorial.md#8-continue-the-conversation)
+9. [Explain an existing command](doc/tutorial.md#9-explain-an-existing-command)
 
 ## First run
 
