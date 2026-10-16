@@ -106,6 +106,10 @@ providers/             one JSON file per provider (openrouter.json, openai.json,
 conversation.jsonl     persisted conversation (created on the first ask)
 ```
 
+Updating from an earlier version? Your existing `sysprompt.md` is renamed to
+`sysprompt-cmd.md` automatically on the next run (your edits are kept), and
+`sysprompt-explain.md` is generated fresh.
+
 Every missing file is generated with default settings and reported:
 `created /home/you/.cluesh/config.json`. Existing files are never overwritten.
 
@@ -178,7 +182,7 @@ Main settings in `config.json`:
 
 ```
 cluesh [-c] [--llm <tag>] "<demand>"             generate a command
-cluesh [-e ["<command>"]]                         explain one: argument, $EDITOR or stdin
+cluesh [-e ["<command>"]]                        explain one: argument, $EDITOR or stdin
 ```
 
 Examples:
@@ -197,7 +201,7 @@ cluesh --help
 
 ### Passing commands safely
 
-Your shell expands `$(…)`, backticks and globs inside *double* quotes before
+Your shell expands `$()`, backticks and globs inside *double* quotes before
 cluesh even sees the text — sometimes running a command in the process.
 cluesh never executes anything itself; the shell acts before it. Both modes
 below sidestep that.
@@ -220,15 +224,20 @@ cluesh -- '-v flag: what does it do?'
 or your editor, so the shell does no expansion at all:
 
 ```
-cluesh -e "ls -l"                     short and simple: as argument
+cluesh -e "ls -l"                      short and simple: as argument
 cluesh -e < mycmd.sh                   command from a file
 cat mycmd.sh | cluesh -e               same, piped
 cluesh -e                              opens $EDITOR: type or paste, save, quit
 ```
 
 Whatever you pass, cluesh echoes `info: explaining: <command>` before the
-LLM call — glance at it: if the shell expanded something (`$(…)` already
+LLM call — glance at it: if the shell expanded something (`$()` already
 ran), you'll see it there.
+
+An explain run repeats the command unchanged, explains every argument, and
+closes with a prose paragraph (the model's `notes`) summarizing what the
+whole command does — for argument-less commands like `pwd`, that paragraph
+is the entire explanation.
 
 ## Full help
 

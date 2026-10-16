@@ -76,7 +76,7 @@ func TestGetHelp(t *testing.T) {
 	out := GetHelp(baseDir)
 
 	for _, want := range []string{
-		"usage: cluesh", "-c, --continue", "--llm-list", "--llm", "-h, --help",
+		"usage:", "-c, --continue", "--llm-list", "--llm", "-h, --help",
 		"config.json", "sysprompt-cmd.md", "sysprompt-explain.md", "conversation.jsonl", "openrouter.json",
 		"api_key_env", baseDir, "https://github.com/dbedla/cluesh",
 		"https://github.com/dbedla/rellm", "https://rellm.dev/agents/cluesh", "https://rellm.dev",

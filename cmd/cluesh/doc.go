@@ -21,7 +21,8 @@
 //
 //	-c, --continue     continue last conversation
 //	-e, --explain      explain a command: as argument ("ls -l"), in $EDITOR
-//	                   (no argument, terminal), or from stdin (file/pipe)
+//	                   (no argument, terminal), or from stdin (file/pipe) —
+//	                   quoting passes through raw
 //	-h, --help         show help and exit
 //	    --llm string   use model with tag <tag> this run (default_model_tag if unset)
 //	    --llm-list     list configured models and exit
@@ -56,11 +57,11 @@
 //
 // Configuration lives under ~/.cluesh:
 //
-//	config.json         main settings (default model, clipboard mode, colors, timeout)
-//	sysprompt-cmd.md    system prompt: command generation
+//	config.json          main settings (default model, clipboard mode, colors, timeout)
+//	sysprompt-cmd.md     system prompt: command generation
 //	sysprompt-explain.md system prompt: command explanation (-e)
-//	providers/          one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
-//	conversation.jsonl  persisted conversation (created on first ask)
+//	providers/           one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
+//	conversation.jsonl   persisted conversation (created on first ask)
 //
 // Every missing file is generated with defaults on the first run; existing
 // files are never overwritten. Each provider file references an API key via
