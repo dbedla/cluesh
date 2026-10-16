@@ -15,7 +15,7 @@ import (
 type Command struct {
 	FinalCommand string       `json:"final_command" jsonschema:"description=The final bash command, oneline, copy-paste ready"`
 	SubCommands  []SubCommand `json:"sub_commands"  jsonschema:"description=EVERY command of the pipeline, in order, including the first, each with ALL its arguments explained, never empty"`
-	Notes        string       `json:"notes"        jsonschema:"description=Short notes, e.g. caveats or variants, empty if none"`
+	Notes        string       `json:"notes"        jsonschema:"description=Short prose: explained purpose of the command, or caveats/variants when generating"`
 	ReadOnly     bool         `json:"read_only"      jsonschema:"description=true when the command does not change any file, false when it modifies anything"`
 }
 

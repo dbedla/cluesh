@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fallback `vi`), or from stdin (`cluesh -e < mycmd.sh`, `cat f | cluesh -e`).
   The shell does no expansion in the editor/stdin paths; `info: explaining:
   <command>` is echoed before the LLM call as a drift alarm
+- explain mode always produces a prose explanation: the explain sys prompt now
+  instructs the model to put a one-sentence summary of the command in `notes`
+  (the only prose visible for commands without arguments, e.g. `pwd`), and the
+  `notes` schema description describes the field's role in both modes
 - two sys prompt files: `sysprompt-cmd.md` (generation) and `sysprompt-explain.md`
   (explanation), chosen by the mode — missing files are generated with defaults,
   an existing `sysprompt.md` is migrated to `sysprompt-cmd.md` unchanged

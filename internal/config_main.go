@@ -59,7 +59,8 @@ The user input is an existing command, NOT a demand. Explain it:
 - Do not evaluate correctness or suggest improvements, only explain what
   each part does.
 - Set "read_only" to true when the command changes no file, false otherwise.
-- Leave "notes" empty unless the user asked for variants or caveats.
+- In "notes", give a short explanation of what the command does overall —
+  it is the only prose the user sees for commands without arguments.
 
 # Output
 
