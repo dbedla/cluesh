@@ -176,21 +176,21 @@ Main settings in `config.json`:
 ## Usage
 
 ```
-cluesh [-c] [--llm <tag>] "<demand>"      generate a command
-cluesh [-e ["<command>"]]                  explain one: argument, $EDITOR or stdin
+cluesh [-c] [--llm <tag>] "<demand>"             generate a command
+cluesh [-e ["<command>"]]                         explain one: argument, $EDITOR or stdin
 ```
 
 Examples:
 
 ```
-cluesh "list all png files larger than 1MB"     generate a command
-cluesh -c "now only the ones modified this week"   continue last conversation
-cluesh --llm lms-gemma "count lines in *.go"       use a specific model this run
-cluesh -e "ls -l"                            explain this simple command
-cluesh -e                                     paste/edit a command in $EDITOR
-cluesh -e < mycmd.sh                           explain a command from a file
-cat mycmd.sh | cluesh -e                       same, piped
-cluesh --llm-list                                  list configured models
+cluesh "list all png files larger than 1MB"       generate a command
+cluesh -c "now only the ones modified this week"  continue last conversation
+cluesh --llm lms-gemma "count lines in *.go"      use a specific model this run
+cluesh -e "ls -l"                                 explain this simple command
+cluesh -e                                         paste/edit a command in $EDITOR
+cluesh -e < mycmd.sh                              explain a command from a file
+cat mycmd.sh | cluesh -e                          same, piped
+cluesh --llm-list                                 list configured models
 cluesh --help
 ```
 
@@ -234,16 +234,20 @@ ran), you'll see it there.
 ```
 cluesh — natural-language demand in, one copy-paste-ready bash command out
 
-usage: cluesh [-c] [--llm <tag>] "<demand>"       generate a command
-       cluesh [-e ["<command>"]]                  explain one: argument, $EDITOR or stdin
+usage: 
+  cluesh [-c] [--llm <tag>] "<demand>"        generate a command
+  cluesh [-e ["<command>"]]                   explain one: argument, $EDITOR or stdin
 
 Examples:
-
-  cluesh "list all png files larger than 1MB"     generate a command
-  cluesh -e "ls -l"                            explain this simple command
-  cluesh -e                                     paste/edit a command in $EDITOR
-  cluesh -e < mycmd.sh                           explain a command from a file
-  cat mycmd.sh | cluesh -e                       same, piped
+  cluesh "list all png files larger than 1MB"         generate a command
+  cluesh -c "now only the ones modified this week"    continue last conversation
+  cluesh --llm lms-gemma "count lines in *.go"        use a specific model this run
+  cluesh -e "ls -l"                                   explain this simple command
+  cluesh -e                                           paste/edit a command in $EDITOR
+  cluesh -e < mycmd.sh                                explain a command from a file
+  cat mycmd.sh | cluesh -e                            same, piped
+  cluesh --llm-list                                   list configured models
+  cluesh --help
 
 Flags:
   -c, --continue     continue last conversation
@@ -253,11 +257,11 @@ Flags:
       --llm-list     list configured models and exit
 
 Config location: ~/.cluesh
-  config.json         main settings (default model, clipboard mode, colors, timeout)
-  sysprompt-cmd.md    system prompt: command generation
-  sysprompt-explain.md  system prompt: command explanation (-e)
-  providers/          one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
-  conversation.jsonl  persisted conversation (created on first ask)
+  config.json            main settings (default model, clipboard mode, colors, timeout)
+  sysprompt-cmd.md       system prompt: command generation
+  sysprompt-explain.md   system prompt: command explanation (-e)
+  providers/             one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
+  conversation.jsonl     persisted conversation (created on first ask)
 
 API key setup (per provider file, e.g. providers/openrouter.json):
   "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)

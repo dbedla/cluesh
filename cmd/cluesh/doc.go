@@ -4,16 +4,17 @@
 //
 // # Usage
 //
-//	cluesh [-c] [--llm <tag>] "<demand>"      generate a command
-//	cluesh [-e ["<command>"]]                   explain one: argument, $EDITOR or stdin
+//	cluesh [-c] [--llm <tag>] "<demand>"              generate a command
+//	cluesh [-e ["<command>"]]                         explain one: argument, $EDITOR or stdin
 //
-//	cluesh "list all png files larger than 1MB"
-//	cluesh -c "now only the ones modified this week"   continue last conversation
-//	cluesh --llm lms-gemma "count lines in *.go"       use a specific model
-//	cluesh -e "ls -l"                                  explain this simple command
-//	cluesh -e                                           paste/edit a command in $EDITOR
-//	cluesh -e < mycmd.sh                                explain a command from a file
-//	cluesh --llm-list                                  list configured models
+//	cluesh "list all png files larger than 1MB"       generate a command
+//	cluesh -c "now only the ones modified this week"  continue last conversation
+//	cluesh --llm lms-gemma "count lines in *.go"      use a specific model this run
+//	cluesh -e "ls -l"                                 explain this simple command
+//	cluesh -e                                         paste/edit a command in $EDITOR
+//	cluesh -e < mycmd.sh                              explain a command from a file
+//	cat mycmd.sh | cluesh -e                          same, piped
+//	cluesh --llm-list                                 list configured models
 //	cluesh --help
 //
 // Flags:
@@ -41,8 +42,8 @@
 // so the shell does no expansion at all:
 //
 //	cluesh -e "ls -l"                short and simple: as argument
-//	cluesh -e < mycmd.sh              command from a file
-//	cluesh -e                          opens $EDITOR: paste, save, quit
+//	cluesh -e < mycmd.sh             command from a file
+//	cluesh -e                        opens $EDITOR: paste, save, quit
 //
 // cluesh echoes `info: explaining: <command>` before the call — if the
 // shell expanded something, you'll see it there.

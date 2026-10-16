@@ -72,11 +72,50 @@ func shortenHome(path string) string {
 // GetHelp returns usage, the generated flag list (pflag PrintDefaults), the
 // config location and key setup. baseDir is resolved by the caller so help
 // works even when the config is missing or broken.
+// helpHeader is the static top of --help: title, usage and examples. A raw
+// string keeps the column alignment visible (and editable) in the source.
+const helpHeader = `cluesh — natural-language demand in, one copy-paste-ready bash command out
+
+usage: 
+  cluesh [-c] [--llm <tag>] "<demand>"        generate a command
+  cluesh [-e ["<command>"]]                   explain one: argument, $EDITOR or stdin
+
+Examples:
+  cluesh "list all png files larger than 1MB"         generate a command
+  cluesh -c "now only the ones modified this week"    continue last conversation
+  cluesh --llm lms-gemma "count lines in *.go"        use a specific model this run
+  cluesh -e "ls -l"                                   explain this simple command
+  cluesh -e                                           paste/edit a command in $EDITOR
+  cluesh -e < mycmd.sh                                explain a command from a file
+  cat mycmd.sh | cluesh -e                            same, piped
+  cluesh --llm-list                                   list configured models
+  cluesh --help
+
+Flags:
+`
+
+// helpAPIKeys documents the provider key setup — static text below the
+// generated config-file list.
+const helpAPIKeys = `
+API key setup (per provider file, e.g. providers/openrouter.json):
+  "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)
+  "api_key": "sk-..."                   inline in the provider file (last resort)
+  both set? the environment variable wins
+`
+
+// helpLinks is the static footer of --help.
+const helpLinks = `
+Detailed info:
+https://rellm.dev/agents/cluesh — cluesh homepage
+https://github.com/dbedla/cluesh — #agent-of-rellm
+https://rellm.dev — rellm homepage
+https://github.com/dbedla/rellm — LLM communication framework
+`
+
 func GetHelp(baseDir string) string {
 	var help strings.Builder
 	fs, _ := newFlagSet()
-	help.WriteString("cluesh — natural-language demand in, one copy-paste-ready bash command out\n")
-	help.WriteString("\nusage: cluesh [-c] [--llm <tag>] \"<demand>\"       generate a command\n       cluesh [-e [\"<command>\"]]                  explain one: argument, $EDITOR or stdin\n\nExamples:\n\n  cluesh \"list all png files larger than 1MB\"     generate a command\n  cluesh -e \"ls -l\"                            explain this simple command\n  cluesh -e                                     paste/edit a command in $EDITOR\n  cluesh -e < mycmd.sh                           explain a command from a file\n  cat mycmd.sh | cluesh -e                       same, piped\n\nFlags:\n")
+	help.WriteString(helpHeader)
 	fs.SetOutput(&help)
 	fs.PrintDefaults()
 
@@ -93,18 +132,9 @@ func GetHelp(baseDir string) string {
 		cfgFileAndDesc := fmt.Sprintf("  %-22s %s\n", f.name, f.desc)
 		help.WriteString(cfgFileAndDesc)
 	}
-	help.WriteString(`
-API key setup (per provider file, e.g. providers/openrouter.json):
-  "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)
-  "api_key": "sk-..."                   inline in the provider file (last resort)
-  both set? the environment variable wins
-`)
+	help.WriteString(helpAPIKeys)
 
-	help.WriteString("\nDetailed info:\n")
-	help.WriteString("https://rellm.dev/agents/cluesh — cluesh homepage\n")
-	help.WriteString("https://github.com/dbedla/cluesh — #agent-of-rellm\n")
-	help.WriteString("https://rellm.dev — rellm homepage\n")
-	help.WriteString("https://github.com/dbedla/rellm — LLM communication framework\n")
+	help.WriteString(helpLinks)
 
 	return help.String()
 }
