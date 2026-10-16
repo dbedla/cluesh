@@ -14,17 +14,20 @@ import (
 func TestBaseDirInjection(t *testing.T) {
 	baseDir := t.TempDir()
 
-	cfg, sysPrompt, err := LoadConfig(baseDir)
+	cfg, sysPrompts, err := LoadConfig(baseDir)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, cfg.DefaultModelTag)
-	assert.NotEmpty(t, sysPrompt)
+	assert.NotEmpty(t, sysPrompts.Cmd)
+	assert.NotEmpty(t, sysPrompts.Explain)
 
 	assert.True(t, strings.HasPrefix(ConfigPath(baseDir), baseDir), "config path outside baseDir")
-	assert.True(t, strings.HasPrefix(SysPromptPath(baseDir), baseDir), "sysprompt path outside baseDir")
+	assert.True(t, strings.HasPrefix(SysPromptCmdPath(baseDir), baseDir), "cmd sysprompt path outside baseDir")
+	assert.True(t, strings.HasPrefix(SysPromptExplainPath(baseDir), baseDir), "explain sysprompt path outside baseDir")
 	assert.True(t, strings.HasPrefix(ConversationPath(baseDir), baseDir), "conversation path outside baseDir")
 
 	assert.FileExists(t, ConfigPath(baseDir))
-	assert.FileExists(t, SysPromptPath(baseDir))
+	assert.FileExists(t, SysPromptCmdPath(baseDir))
+	assert.FileExists(t, SysPromptExplainPath(baseDir))
 	// conversation.jsonl is deliberately absent: rellm's FilesystemConversation
 	// creates it lazily on first Append — missing file = empty conversation.
 }
@@ -72,4 +75,33 @@ func TestIsFirstRun(t *testing.T) {
 	if IsFirstRun(empty) {
 		t.Fatal("dir with a file should not be first run")
 	}
+}
+
+// Guards the shell contract of the built-in sys prompt: generation must stay
+// bash-by-default, and the explain extension must carry its mode rules —
+// so a prompt edit can not silently drop either.
+func TestSysPromptContent(t *testing.T) {
+	assert.Contains(t, ProgramSysPrompt, "Bash is the default output shell")
+	assert.Contains(t, ProgramSysPrompt, "copy-paste ready bash command")
+	assert.NotContains(t, ProgramSysPrompt, "Explanation")
+
+	assert.Contains(t, ExplainSysPrompt, "Explanation Mode")
+	assert.Contains(t, ExplainSysPrompt, "Do not generate a new command")
+}
+
+// A pre-existing single sysprompt.md must survive the two-file split: it
+// becomes sysprompt-cmd.md, never the default.
+func TestLegacySysPromptMigrated(t *testing.T) {
+	baseDir := t.TempDir()
+	legacy := filepath.Join(baseDir, LegacySysPromptFileName)
+	require.NoError(t, os.WriteFile(legacy, []byte("custom prompt"), 0o600))
+
+	_, _, err := LoadConfig(baseDir)
+	require.NoError(t, err)
+
+	assert.NoFileExists(t, legacy)
+	data, err := os.ReadFile(SysPromptCmdPath(baseDir))
+	require.NoError(t, err)
+	assert.Equal(t, "custom prompt", string(data))
+	assert.FileExists(t, SysPromptExplainPath(baseDir))
 }

@@ -98,10 +98,11 @@ New to cluesh? Follow the step-by-step walkthrough in
 The first run creates the configuration under `~/.cluesh/`:
 
 ```
-config.json          main settings (default model, clipboard mode, colors, timeout)
-sysprompt.md         system prompt
-providers/           one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
-conversation.jsonl   persisted conversation (created on the first ask)
+config.json            main settings (default model, clipboard mode, colors, timeout)
+sysprompt-cmd.md       system prompt: command generation
+sysprompt-explain.md   system prompt: command explanation (-e)
+providers/             one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
+conversation.jsonl     persisted conversation (created on the first ask)
 ```
 
 Every missing file is generated with default settings and reported:
@@ -253,7 +254,8 @@ Flags:
 
 Config location: ~/.cluesh
   config.json         main settings (default model, clipboard mode, colors, timeout)
-  sysprompt.md        system prompt
+  sysprompt-cmd.md    system prompt: command generation
+  sysprompt-explain.md  system prompt: command explanation (-e)
   providers/          one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
   conversation.jsonl  persisted conversation (created on first ask)
 

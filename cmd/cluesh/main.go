@@ -39,7 +39,7 @@ func main() {
 		return
 	}
 
-	mainCfg, sysPrompt, err := cluesh.LoadConfig(baseDir)
+	mainCfg, sysPrompts, err := cluesh.LoadConfig(baseDir)
 	if err != nil {
 		exit(err)
 	}
@@ -70,7 +70,13 @@ func main() {
 	}
 
 	q := parseParams.Prompt
+	// -e/--explain: argument wins, else $EDITOR on a terminal, else stdin
+	// (file/pipe). Runs before StartFresh so a cancelled or failed explain
+	// does not delete the saved conversation. The mode also selects the sys
+	// prompt: sysprompt-explain.md vs sysprompt-cmd.md.
+	sysPrompt := sysPrompts.Cmd
 	if parseParams.Explain {
+		sysPrompt = sysPrompts.Explain
 		q, err = promptForExplainFlow(q)
 		if err != nil {
 			exit(err)
@@ -149,8 +155,8 @@ func promptForExplainFlow(q string) (string, error) {
 	// drift alarm: show what actually arrived, before paying for the call.
 	// strconv.Quote neutralizes control/escape chars from untrusted input.
 	fmt.Printf("info: explaining: %s\n", strconv.Quote(q))
-	// deterministic mode signal: the sysprompt describes both modes, this
-	// prefix tells the LLM which one this run is
+	// drift guard: even a customized sysprompt-explain.md plus this prefix
+	// leaves no room for the LLM to guess the mode
 	q = explainMessage(q)
 
 	return q, nil
@@ -189,8 +195,8 @@ func printLLMClaimOnCmd(noFileModification bool) {
 }
 
 // explainMessage wraps the command with a mode-selecting prefix so the LLM
-// explains it instead of generating a new one — even with a customized
-// sysprompt that never mentions the explanation mode.
+// explains it instead of generating a new one — a fallback for customized
+// sysprompt.md files that never mention the explanation mode.
 func explainMessage(cmd string) string {
 	return "Explain this command; do not generate a new one:\n" + cmd
 }

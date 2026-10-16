@@ -14,8 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fallback `vi`), or from stdin (`cluesh -e < mycmd.sh`, `cat f | cluesh -e`).
   The shell does no expansion in the editor/stdin paths; `info: explaining:
   <command>` is echoed before the LLM call as a drift alarm
-- explain runs send a mode-selecting prefix to the LLM so it always explains
-  instead of generating, even with a customized sysprompt
+- two sys prompt files: `sysprompt-cmd.md` (generation) and `sysprompt-explain.md`
+  (explanation), chosen by the mode — missing files are generated with defaults,
+  an existing `sysprompt.md` is migrated to `sysprompt-cmd.md` unchanged
+- the default sys prompt states the shell contract explicitly: bash is the
+  default output; another shell only when the user asks for one (named in
+  "notes"); other shells listed are for understanding input, not output
 - "Passing commands safely" section in README and `doc.go`: single quotes prevent
   shell expansion of `$()`, backticks and globs; `--` marker for demands
   starting with `-`

@@ -84,12 +84,13 @@ func GetHelp(baseDir string) string {
 	help.WriteString(location)
 	files := []struct{ name, desc string }{
 		{ConfigFileName, "main settings (default model, clipboard mode, colors, timeout)"},
-		{SysPromptFileName, "system prompt"},
+		{SysPromptCmdFileName, "system prompt: command generation"},
+		{SysPromptExplainFileName, "system prompt: command explanation (-e)"},
 		{ProvidersDir + "/", "one JSON file per provider (openrouter.json, openai.json, lmstudio.json)"},
 		{ConversationFileName, "persisted conversation (created on first ask)"},
 	}
 	for _, f := range files {
-		cfgFileAndDesc := fmt.Sprintf("  %-19s %s\n", f.name, f.desc)
+		cfgFileAndDesc := fmt.Sprintf("  %-22s %s\n", f.name, f.desc)
 		help.WriteString(cfgFileAndDesc)
 	}
 	help.WriteString(`
