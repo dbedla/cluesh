@@ -35,7 +35,8 @@ Run cluesh without a demand. On its first run, cluesh creates the configuration 
 ```console
 $  cluesh
 created ~/.cluesh/config.json
-created ~/.cluesh/sysprompt.md
+created ~/.cluesh/sysprompt-cmd.md
+created ~/.cluesh/sysprompt-explain.md
 created ~/.cluesh/providers/openrouter.json
 created ~/.cluesh/providers/openai.json
 created ~/.cluesh/providers/lmstudio.json
@@ -55,12 +56,13 @@ $  tree ~/.cluesh
 ~/.cluesh
 ├── config.json
 ├── providers
-│   ├── lmstudio.json
-│   ├── openai.json
-│   └── openrouter.json
-└── sysprompt.md
+│   ├── lmstudio.json
+│   ├── openai.json
+│   └── openrouter.json
+├── sysprompt-cmd.md
+└── sysprompt-explain.md
 
-2 directories, 5 files
+2 directories, 6 files
 ```
 
 The files have separate responsibilities:
@@ -69,7 +71,9 @@ The files have separate responsibilities:
 - `providers/openrouter.json` configures OpenRouter credentials and models.
 - `providers/openai.json` configures OpenAI credentials and models.
 - `providers/lmstudio.json` configures a local LM Studio endpoint.
-- `sysprompt.md` contains the system prompt used by cluesh.
+- `sysprompt-cmd.md` contains the system prompt for command generation.
+- `sysprompt-explain.md` contains the system prompt for command explanation (`-e`).
+  cluesh picks the matching prompt per run; edit either file to steer the model.
 
 ## 4. Choose the default model
 
@@ -200,12 +204,13 @@ $  tree ~/.cluesh
 ├── config.json
 ├── conversation.jsonl
 ├── providers
-│   ├── lmstudio.json
-│   ├── openai.json
-│   └── openrouter.json
-└── sysprompt.md
+│   ├── lmstudio.json
+│   ├── openai.json
+│   └── openrouter.json
+├── sysprompt-cmd.md
+└── sysprompt-explain.md
 
-2 directories, 6 files
+2 directories, 7 files
 ```
 
 `conversation.jsonl` stores the most recent conversation. A normal cluesh run starts a new conversation and replaces this file.
