@@ -39,10 +39,11 @@
 //	cluesh 'delete files under $(pwd)/tmp'   $() reaches the LLM as text
 //	cluesh -- '-v flag: what does it do?'
 //
-// Explaining: use -e — the command comes from a file, a pipe or $EDITOR,
-// so the shell does no expansion at all:
+// Explaining: use -e. From a file, a pipe or $EDITOR the command reaches
+// cluesh unexpanded; as an argument it follows the quoting rules above —
+// single quotes when the command contains $(), backticks or globs:
 //
-//	cluesh -e "ls -l"                short and simple: as argument
+//	cluesh -e 'ls -l'                short and simple: as argument
 //	cluesh -e < mycmd.sh             command from a file
 //	cluesh -e                        opens $EDITOR: paste, save, quit
 //

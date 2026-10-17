@@ -216,11 +216,13 @@ A demand that *starts with* `-` looks like a flag — put `--` in front:
 cluesh -- '-v flag: what does it do?'
 ```
 
-**Explaining a command** — use `-e`. The command comes from a file, a pipe
-or your editor, so the shell does no expansion at all:
+**Explaining a command** — use `-e`. From a file, a pipe or your editor
+the command reaches cluesh unexpanded; as an argument it follows the
+quoting rules above — single quotes when the command contains `$()`,
+backticks or globs:
 
 ```
-cluesh -e "ls -l"                      short and simple: as argument
+cluesh -e 'ls -l'                      short and simple: as argument
 cluesh -e < mycmd.sh                   command from a file
 cat mycmd.sh | cluesh -e               same, piped
 cluesh -e                              opens $EDITOR: type or paste, save, quit
