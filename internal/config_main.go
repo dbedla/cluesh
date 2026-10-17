@@ -100,7 +100,11 @@ type MainConfig struct {
 	PutCmdInClipboard       string `json:"put_cmd_in_clipboard"`      // always | never | read-only
 	Colors                  string `json:"colors"`                    // dark | light | none
 	ExecutionTimeoutMinutes int    `json:"execution_timeout_minutes"` // agent timeout, minutes — must be >=1, no upper limit
+	InputLimitInBytes       int    `json:"input_limit_in_bytes"`      // max size of the input prompt (demand or command to explain), bytes — must be >=1, no upper limit
 }
+
+// defaultInputLimitInBytes is the input_limit_in_bytes default, in bytes.
+const defaultInputLimitInBytes = 65536
 
 // Sampling parameters (temperature, reasoning) are per model, configured in
 // the provider files — see Model.
@@ -128,6 +132,7 @@ func DefaultMainConfig() MainConfig {
 		PutCmdInClipboard:       "always",
 		Colors:                  "dark",
 		ExecutionTimeoutMinutes: 5,
+		InputLimitInBytes:       defaultInputLimitInBytes,
 	}
 }
 
@@ -253,6 +258,34 @@ func writeJSON(path string, v any) error {
 	return nil
 }
 
+// amendConfigInputLimit adds input_limit_in_bytes with its default to a
+// config file that predates the field, keeping every other key (_options
+// included) unchanged. The write is atomic: temp file + rename.
+func amendConfigInputLimit(cfgPath string, data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("cannot re-read %s: %w", cfgPath, err)
+	}
+	def, err := json.Marshal(defaultInputLimitInBytes)
+	if err != nil {
+		return err
+	}
+	raw["input_limit_in_bytes"] = def
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := cfgPath + ".tmp"
+	if err := os.WriteFile(tmp, append(out, '\n'), 0o600); err != nil {
+		return fmt.Errorf("cannot write %s: %w", tmp, err)
+	}
+	if err := os.Rename(tmp, cfgPath); err != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("cannot rename %s to %s: %w", tmp, cfgPath, err)
+	}
+	return nil
+}
+
 // LoadConfig reads and validates the main config and both sys prompt files.
 // Missing files are generated on first run with a notice.
 func LoadConfig(baseDir string) (MainConfig, SysPrompts, error) {
@@ -290,6 +323,25 @@ func LoadConfig(baseDir string) (MainConfig, SysPrompts, error) {
 	}
 	if cfg.ExecutionTimeoutMinutes < 1 {
 		return MainConfig{}, SysPrompts{}, fmt.Errorf("%s: execution_timeout_minutes must be >=1, got %d", cfgPath, cfg.ExecutionTimeoutMinutes)
+	}
+	// input_limit_in_bytes: present → validated; absent (config predates
+	// the field) → added to the file with the default, every other key kept
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return MainConfig{}, SysPrompts{}, fmt.Errorf("invalid json in %s: %w", cfgPath, err)
+	}
+	if _, present := raw["input_limit_in_bytes"]; present {
+		if cfg.InputLimitInBytes < 1 {
+			return MainConfig{}, SysPrompts{}, fmt.Errorf("%s: input_limit_in_bytes must be >=1, got %d", cfgPath, cfg.InputLimitInBytes)
+		}
+	} else {
+		if err := amendConfigInputLimit(cfgPath, data); err != nil {
+			// a failed amend must not block the run — in-memory default instead
+			fmt.Fprintf(os.Stderr, "warning: %v — using %d for this run\n", err, defaultInputLimitInBytes)
+		} else {
+			fmt.Printf("updated %s: added input_limit_in_bytes: %d\n", cfgPath, defaultInputLimitInBytes)
+		}
+		cfg.InputLimitInBytes = defaultInputLimitInBytes
 	}
 
 	readPrompt := func(path string) (string, error) {

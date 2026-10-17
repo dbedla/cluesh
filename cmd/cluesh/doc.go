@@ -58,7 +58,7 @@
 //
 // Configuration lives under ~/.cluesh:
 //
-//	config.json          main settings (default model, clipboard mode, colors, timeout)
+//	config.json          main settings (default model, clipboard mode, colors, timeout, input limit)
 //	sysprompt-cmd.md     system prompt: command generation
 //	sysprompt-explain.md system prompt: command explanation (-e)
 //	providers/           one JSON file per provider (openrouter.json, openai.json, lmstudio.json)

@@ -122,7 +122,7 @@ func GetHelp(baseDir string) string {
 	location := fmt.Sprintf("\nConfig location: %s\n", shortenHome(baseDir))
 	help.WriteString(location)
 	files := []struct{ name, desc string }{
-		{ConfigFileName, "main settings (default model, clipboard mode, colors, timeout)"},
+		{ConfigFileName, "main settings (default model, clipboard mode, colors, timeout, input limit)"},
 		{SysPromptCmdFileName, "system prompt: command generation"},
 		{SysPromptExplainFileName, "system prompt: command explanation (-e)"},
 		{ProvidersDir + "/", "one JSON file per provider (openrouter.json, openai.json, lmstudio.json)"},

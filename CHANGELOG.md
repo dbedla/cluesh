@@ -28,6 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "Passing commands safely" section in README and `doc.go`: single quotes prevent
   shell expansion of `$()`, backticks and globs; `--` marker for demands
   starting with `-`
+- `input_limit_in_bytes` in `config.json` (default 65536 bytes): caps the
+  input on every path — generation demand and `-e` command alike (argument,
+  `$EDITOR`, stdin) — so a misdirected file is refused before it is read
+  into memory or sent to the provider; configs written before the field
+  existed get it added automatically (all other keys kept, reported with
+  `updated …`), and 0/negative values are rejected
 
 ## [v0.1.1] - 2026-09-24
 

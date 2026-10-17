@@ -77,6 +77,58 @@ func TestIsFirstRun(t *testing.T) {
 	}
 }
 
+// input_limit_in_bytes: present but invalid (0, negative) rejected;
+// absent (config predates the field) amended in place — field added with
+// the default, every other key (_options included) kept.
+func TestLoadConfigInputLimit(t *testing.T) {
+	load := func(baseDir string, limit int) (MainConfig, error) {
+		_, _, err := LoadConfig(baseDir) // first run: generate defaults
+		require.NoError(t, err)
+		path := filepath.Join(baseDir, ConfigFileName)
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		out := strings.Replace(string(data),
+			fmt.Sprintf(`"input_limit_in_bytes": %d`, defaultInputLimitInBytes),
+			fmt.Sprintf(`"input_limit_in_bytes": %d`, limit), 1)
+		require.NoError(t, os.WriteFile(path, []byte(out), 0o600))
+		cfg, _, err := LoadConfig(baseDir)
+		return cfg, err
+	}
+
+	_, err := load(t.TempDir(), -1)
+	assert.Error(t, err, "negative input_limit_in_bytes must be rejected")
+
+	_, err = load(t.TempDir(), 0)
+	assert.Error(t, err, "explicit input_limit_in_bytes 0 must be rejected")
+
+	cfg, err := load(t.TempDir(), 4096)
+	require.NoError(t, err)
+	assert.Equal(t, 4096, cfg.InputLimitInBytes)
+
+	// simulate a config written before the field existed: delete the line
+	baseDir := t.TempDir()
+	_, _, err = LoadConfig(baseDir)
+	require.NoError(t, err)
+	path := filepath.Join(baseDir, ConfigFileName)
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	out := strings.Replace(string(data),
+		fmt.Sprintf(",\n  %q: %d", "input_limit_in_bytes", defaultInputLimitInBytes), "", 1)
+	require.NotEqual(t, string(data), out, "removal pattern must match the generated config")
+	require.NoError(t, os.WriteFile(path, []byte(out), 0o600))
+	cfg, _, err = LoadConfig(baseDir)
+	require.NoError(t, err)
+	assert.Equal(t, defaultInputLimitInBytes, cfg.InputLimitInBytes)
+
+	// the amend landed in the file, and everything else survived it
+	data, err = os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), fmt.Sprintf(`"input_limit_in_bytes": %d`, defaultInputLimitInBytes), "amend must add the field")
+	assert.Contains(t, string(data), `"default_model_tag": "or-glm53flash"`, "amend must keep existing fields")
+	assert.Contains(t, string(data), `_options`, "amend must keep the _options block")
+	assert.NoFileExists(t, path+".tmp", "amend must not leave a temp file")
+}
+
 // Guards the shell contract of the built-in sys prompt: generation must stay
 // bash-by-default, and the explain extension must carry its mode rules —
 // so a prompt edit can not silently drop either.

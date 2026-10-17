@@ -72,6 +72,12 @@ func main() {
 	}
 
 	q := parseParams.Prompt
+	if !parseParams.Explain {
+		err := checkDemandLimit(q, mainCfg.InputLimitInBytes)
+		if err != nil {
+			exit(err)
+		}
+	}
 	// -e/--explain: argument wins, else $EDITOR on a terminal, else stdin
 	// (file/pipe). Runs before StartFresh so a cancelled or failed explain
 	// does not delete the saved conversation. The mode also selects the sys
@@ -79,7 +85,7 @@ func main() {
 	sysPrompt := sysPrompts.Cmd
 	if parseParams.Explain {
 		sysPrompt = sysPrompts.Explain
-		q, err = promptForExplainFlow(q)
+		q, err = promptForExplainFlow(q, mainCfg.InputLimitInBytes)
 		if err != nil {
 			exit(err)
 		}
@@ -137,14 +143,30 @@ func main() {
 	}
 }
 
-func promptForExplainFlow(q string) (string, error) {
+// checkDemandLimit enforces input_limit_in_bytes on the generation demand:
+// anything bigger is a misdirected file dump, and the provider would only
+// reject it after the tokens are spent.
+func checkDemandLimit(q string, limitInBytes int) error {
+	if len(q) > limitInBytes {
+		return fmt.Errorf("demand is %d bytes, over the %d byte input_limit_in_bytes — it looks like a file, not a demand", len(q), limitInBytes)
+	}
+	return nil
+}
+
+// promptForExplainFlow resolves the command to explain — argument, else
+// $EDITOR on a terminal, else stdin (file/pipe) — and enforces limitInBytes
+// on every path: a bash command is a few KB at most, so anything bigger is a
+// misdirected file, and reading it unbounded would load it all into memory
+// before the provider rejects it.
+func promptForExplainFlow(q string, limitInBytes int) (string, error) {
 	if q == "" {
 		var err error
 		if isTerminal(os.Stdin) {
-			q, err = readFromEditor()
+			q, err = readFromEditor(limitInBytes)
 		} else {
+			// +1 so an over-limit input is detected without reading it all
 			var b []byte
-			b, err = io.ReadAll(os.Stdin)
+			b, err = io.ReadAll(io.LimitReader(os.Stdin, int64(limitInBytes+1)))
 			q = strings.TrimSpace(string(b))
 		}
 		if err != nil {
@@ -153,6 +175,10 @@ func promptForExplainFlow(q string) (string, error) {
 		if q == "" {
 			return "", errors.New("no command to explain")
 		}
+	}
+	// one check covers all three input paths (argument, stdin, editor)
+	if len(q) > limitInBytes {
+		return "", fmt.Errorf("command to explain is %d bytes, over the %d byte input_limit_in_bytes — it looks like a file, not a command", len(q), limitInBytes)
 	}
 	// drift alarm: show what actually arrived, before paying for the call.
 	// strconv.Quote neutralizes control/escape chars from untrusted input.
@@ -237,7 +263,7 @@ func isTerminal(f *os.File) bool {
 // readFromEditor opens $VISUAL, $EDITOR (fallback: vi on Unix, notepad on
 // Windows) on a temp file and returns its contents after the editor exits.
 // The file is removed after.
-func readFromEditor() (_ string, finalError error) {
+func readFromEditor(limitInBytes int) (_ string, finalError error) {
 	f, err := os.CreateTemp("", "cluesh-*.sh")
 	if err != nil {
 		return "", err
@@ -277,6 +303,10 @@ func readFromEditor() (_ string, finalError error) {
 		return "", fmt.Errorf("editor %q: %w", editor, err)
 	}
 
+	// refuse an oversized temp file before loading it into memory
+	if info, statErr := os.Stat(path); statErr == nil && info.Size() > int64(limitInBytes) {
+		return "", fmt.Errorf("editor content is %d bytes, over the %d byte input_limit_in_bytes — it looks like a file, not a command", info.Size(), limitInBytes)
+	}
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return "", err

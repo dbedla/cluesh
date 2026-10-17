@@ -173,6 +173,7 @@ Main settings in `config.json`:
 | `put_cmd_in_clipboard`    | `always` \| `never` \| `read-only`            | `always` |
 | `colors`                  | `dark` \| `light` \| `none` (`NO_COLOR` wins) | `dark` |
 | `execution_timeout_minutes` | agent timeout per run                       | `5` |
+| `input_limit_in_bytes`   | max size of the input prompt (demand or command to explain), bytes | `65536` |
 
 ## Usage
 
