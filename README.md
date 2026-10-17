@@ -106,10 +106,6 @@ providers/             one JSON file per provider (openrouter.json, openai.json,
 conversation.jsonl     persisted conversation (created on the first ask)
 ```
 
-Updating from an earlier version? Your existing `sysprompt.md` is renamed to
-`sysprompt-cmd.md` automatically on the next run (your edits are kept), and
-`sysprompt-explain.md` is generated fresh.
-
 Every missing file is generated with default settings and reported:
 `created /home/you/.cluesh/config.json`. Existing files are never overwritten.
 

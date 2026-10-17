@@ -89,8 +89,9 @@ func TestSysPromptContent(t *testing.T) {
 	assert.Contains(t, ExplainSysPrompt, "Do not generate a new command")
 }
 
-// A pre-existing single sysprompt.md must survive the two-file split: it
-// becomes sysprompt-cmd.md, never the default.
+// A pre-existing single sysprompt.md must survive the two-file split: it is
+// renamed to deprecated-sysprompt.md (kept, but unused), and both prompt
+// files are generated with defaults.
 func TestLegacySysPromptMigrated(t *testing.T) {
 	baseDir := t.TempDir()
 	legacy := filepath.Join(baseDir, LegacySysPromptFileName)
@@ -100,8 +101,30 @@ func TestLegacySysPromptMigrated(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NoFileExists(t, legacy)
-	data, err := os.ReadFile(SysPromptCmdPath(baseDir))
+	data, err := os.ReadFile(filepath.Join(baseDir, DeprecatedPrefix+LegacySysPromptFileName))
 	require.NoError(t, err)
 	assert.Equal(t, "custom prompt", string(data))
+	assert.FileExists(t, SysPromptCmdPath(baseDir))
 	assert.FileExists(t, SysPromptExplainPath(baseDir))
+}
+
+// Corner case: both new prompt files already exist, yet a legacy sysprompt.md
+// is still around — it must be deprecated in that state too.
+func TestLegacySysPromptDeprecatedWithNewFilesPresent(t *testing.T) {
+	baseDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(baseDir, LegacySysPromptFileName), []byte("custom"), 0o600))
+	require.NoError(t, os.WriteFile(SysPromptCmdPath(baseDir), []byte("cmd"), 0o600))
+	require.NoError(t, os.WriteFile(SysPromptExplainPath(baseDir), []byte("explain"), 0o600))
+
+	_, _, err := LoadConfig(baseDir)
+	require.NoError(t, err)
+
+	assert.NoFileExists(t, filepath.Join(baseDir, LegacySysPromptFileName))
+	data, err := os.ReadFile(filepath.Join(baseDir, DeprecatedPrefix+LegacySysPromptFileName))
+	require.NoError(t, err)
+	assert.Equal(t, "custom", string(data))
+	// the existing prompt files are untouched
+	data, err = os.ReadFile(SysPromptCmdPath(baseDir))
+	require.NoError(t, err)
+	assert.Equal(t, "cmd", string(data))
 }

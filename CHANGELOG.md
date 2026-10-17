@@ -19,8 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (the only prose visible for commands without arguments, e.g. `pwd`), and the
   `notes` schema description describes the field's role in both modes
 - two sys prompt files: `sysprompt-cmd.md` (generation) and `sysprompt-explain.md`
-  (explanation), chosen by the mode — missing files are generated with defaults,
-  an existing `sysprompt.md` is migrated to `sysprompt-cmd.md` unchanged
+  (explanation), chosen by the mode — missing files are generated with defaults;
+  a pre-existing `sysprompt.md` is kept but renamed to `deprecated-sysprompt.md`,
+  so customized prompts are preserved yet no longer used
 - the default sys prompt states the shell contract explicitly: bash is the
   default output; another shell only when the user asks for one (named in
   "notes"); other shells listed are for understanding input, not output

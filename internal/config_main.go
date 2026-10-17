@@ -83,8 +83,11 @@ const (
 	// SysPromptExplainFileName is the explain-mode (-e) sys prompt file.
 	SysPromptExplainFileName = "sysprompt-explain.md"
 	// LegacySysPromptFileName is the single-prompt file from before the two
-	// prompt files existed; it is migrated to sysprompt-cmd.md on startup.
+	// prompt files existed; on startup it is renamed with the deprecated
+	// prefix so a customized prompt is kept but no longer used.
 	LegacySysPromptFileName = "sysprompt.md"
+	// DeprecatedPrefix marks superseded config files, e.g. deprecated-sysprompt.md.
+	DeprecatedPrefix = "deprecated-"
 )
 
 // ConversationFileName is the persisted conversation file inside ConfigDir.
@@ -174,32 +177,46 @@ func IsFirstRun(baseDir string) bool {
 
 // EnsureConfig makes sure the base dir with config.json, sysprompt-cmd.md
 // and sysprompt-explain.md exists. Missing files are generated with default
-// settings; created reports them. A legacy sysprompt.md is migrated to
-// sysprompt-cmd.md instead of being overwritten, so customizations survive.
+// settings; created reports them. A legacy sysprompt.md is kept but renamed
+// with the deprecated- prefix, so its content is preserved yet no longer used.
 func EnsureConfig(baseDir string) (created []string, err error) {
 	if mkErr := os.MkdirAll(baseDir, 0o755); mkErr != nil {
 		return nil, fmt.Errorf("cannot create config dir %s: %w", baseDir, mkErr)
 	}
-
 	cfgPath := ConfigPath(baseDir)
-	if _, statErr := os.Stat(cfgPath); errors.Is(statErr, fs.ErrNotExist) {
-		if wErr := writeJSON(cfgPath, configTemplate{Options: configOptions(), MainConfig: DefaultMainConfig()}); wErr != nil {
-			return nil, wErr
+	_, statErr := os.Stat(cfgPath)
+	if errors.Is(statErr, fs.ErrNotExist) {
+		writeErr := writeJSON(cfgPath, configTemplate{Options: configOptions(), MainConfig: DefaultMainConfig()})
+		if writeErr != nil {
+			return nil, writeErr
 		}
 		created = append(created, cfgPath)
 	} else if statErr != nil {
 		return nil, fmt.Errorf("cannot access %s: %w", cfgPath, statErr)
 	}
 
+	// Deprecate the legacy single sysprompt no matter what state the new
+	// prompt files are in — e.g. both already generated, yet sysprompt.md
+	// still around.
+	legacyPath := filepath.Join(baseDir, LegacySysPromptFileName)
+	_, legErr := os.Stat(legacyPath)
+	if legErr == nil {
+		depPath := filepath.Join(baseDir, DeprecatedPrefix+LegacySysPromptFileName)
+		renameErr := os.Rename(legacyPath, depPath)
+		if renameErr != nil {
+			return nil, fmt.Errorf("cannot rename %s to %s: %w", legacyPath, depPath, renameErr)
+		}
+		created = append(created, depPath)
+	} else if !errors.Is(legErr, fs.ErrNotExist) {
+		return nil, fmt.Errorf("cannot access %s: %w", legacyPath, legErr)
+	}
+
 	cmdPath := SysPromptCmdPath(baseDir)
-	if _, statErr := os.Stat(cmdPath); errors.Is(statErr, fs.ErrNotExist) {
-		legacyPath := filepath.Join(baseDir, LegacySysPromptFileName)
-		if _, legErr := os.Stat(legacyPath); legErr == nil {
-			if rErr := os.Rename(legacyPath, cmdPath); rErr != nil {
-				return nil, fmt.Errorf("cannot migrate %s to %s: %w", legacyPath, cmdPath, rErr)
-			}
-		} else if wErr := os.WriteFile(cmdPath, []byte(ProgramSysPrompt), 0o600); wErr != nil {
-			return nil, fmt.Errorf("cannot write %s: %w", cmdPath, wErr)
+	_, statErr = os.Stat(cmdPath)
+	if errors.Is(statErr, fs.ErrNotExist) {
+		writeErr := os.WriteFile(cmdPath, []byte(ProgramSysPrompt), 0o600)
+		if writeErr != nil {
+			return nil, fmt.Errorf("cannot write %s: %w", cmdPath, writeErr)
 		}
 		created = append(created, cmdPath)
 	} else if statErr != nil {
@@ -207,9 +224,11 @@ func EnsureConfig(baseDir string) (created []string, err error) {
 	}
 
 	expPath := SysPromptExplainPath(baseDir)
-	if _, statErr := os.Stat(expPath); errors.Is(statErr, fs.ErrNotExist) {
-		if wErr := os.WriteFile(expPath, []byte(ExplainSysPrompt), 0o600); wErr != nil {
-			return nil, fmt.Errorf("cannot write %s: %w", expPath, wErr)
+	_, statErr = os.Stat(expPath)
+	if errors.Is(statErr, fs.ErrNotExist) {
+		writeErr := os.WriteFile(expPath, []byte(ExplainSysPrompt), 0o600)
+		if writeErr != nil {
+			return nil, fmt.Errorf("cannot write %s: %w", expPath, writeErr)
 		}
 		created = append(created, expPath)
 	} else if statErr != nil {
