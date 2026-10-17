@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/term"
+
 	cluesh "github.com/dbedla/cluesh/internal"
 
 	"github.com/dbedla/rellm/pkg/rellm"
@@ -225,11 +227,11 @@ func exit(err error) {
 	os.Exit(1)
 }
 
-// isTerminal reports whether f is attached to a character device (a
-// terminal) rather than a file or pipe.
+// isTerminal reports whether f is attached to a terminal rather than a
+// file or pipe. term.IsTerminal uses an isatty ioctl, so char devices like
+// /dev/null are correctly reported as non-terminals.
 func isTerminal(f *os.File) bool {
-	info, err := f.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
+	return term.IsTerminal(int(f.Fd()))
 }
 
 // readFromEditor opens $VISUAL, $EDITOR (fallback: vi on Unix, notepad on

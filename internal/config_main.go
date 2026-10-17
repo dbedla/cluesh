@@ -202,6 +202,11 @@ func EnsureConfig(baseDir string) (created []string, err error) {
 	_, legErr := os.Stat(legacyPath)
 	if legErr == nil {
 		depPath := filepath.Join(baseDir, DeprecatedPrefix+LegacySysPromptFileName)
+		// refuse to overwrite: an existing deprecated file may hold an earlier
+		// customized prompt, and os.Rename silently clobbers it on Unix
+		if _, depErr := os.Stat(depPath); depErr == nil {
+			return nil, fmt.Errorf("%s needs manual action: both it and %s are system prompt files (the deprecated one from an earlier migration), and renaming would overwrite the latter — remove or rename one of them yourself, then rerun cluesh", legacyPath, depPath)
+		}
 		renameErr := os.Rename(legacyPath, depPath)
 		if renameErr != nil {
 			return nil, fmt.Errorf("cannot rename %s to %s: %w", legacyPath, depPath, renameErr)

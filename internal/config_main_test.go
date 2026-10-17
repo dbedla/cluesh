@@ -108,6 +108,31 @@ func TestLegacySysPromptMigrated(t *testing.T) {
 	assert.FileExists(t, SysPromptExplainPath(baseDir))
 }
 
+// Refusal case: a legacy sysprompt.md AND a deprecated-sysprompt.md (from an
+// earlier migration) both exist. The rename must be refused — not silently
+// overwrite the earlier deprecated prompt (os.Rename clobbers on Unix) —
+// with an error naming both files, and nothing on disk may change.
+func TestLegacySysPromptRenameRefusedWhenDeprecatedExists(t *testing.T) {
+	baseDir := t.TempDir()
+	legacy := filepath.Join(baseDir, LegacySysPromptFileName)
+	dep := filepath.Join(baseDir, DeprecatedPrefix+LegacySysPromptFileName)
+	require.NoError(t, os.WriteFile(legacy, []byte("second custom"), 0o600))
+	require.NoError(t, os.WriteFile(dep, []byte("first custom"), 0o600))
+
+	_, _, err := LoadConfig(baseDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), legacy, "error must name the legacy file")
+	assert.Contains(t, err.Error(), dep, "error must name the file that would be overwritten")
+
+	// both prompts survive untouched
+	data, rErr := os.ReadFile(legacy)
+	require.NoError(t, rErr)
+	assert.Equal(t, "second custom", string(data))
+	data, rErr = os.ReadFile(dep)
+	require.NoError(t, rErr)
+	assert.Equal(t, "first custom", string(data))
+}
+
 // Corner case: both new prompt files already exist, yet a legacy sysprompt.md
 // is still around — it must be deprecated in that state too.
 func TestLegacySysPromptDeprecatedWithNewFilesPresent(t *testing.T) {
