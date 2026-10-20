@@ -20,8 +20,14 @@ func TestIsTerminalCharDevice(t *testing.T) {
 	if err != nil {
 		t.Skip("no /dev/null available:", err)
 	}
-	defer f.Close()
+
+	defer func() {
+		err = f.Close()
+		assert.NoError(t, err)
+	}()
+
 	assert.False(t, isTerminal(f), "/dev/null must not be detected as a terminal")
+
 }
 
 func TestExplainFlowInputLimit(t *testing.T) {
@@ -40,7 +46,11 @@ func TestExplainFlowInputLimit(t *testing.T) {
 	require.NoError(t, f.Close())
 	f, ferr = os.Open(f.Name())
 	require.NoError(t, ferr)
-	defer f.Close()
+
+	defer func() {
+		err = f.Close()
+		assert.NoError(t, err)
+	}()
 
 	orig := os.Stdin
 	os.Stdin = f

@@ -280,8 +280,9 @@ func amendConfigInputLimit(cfgPath string, data []byte) error {
 		return fmt.Errorf("cannot write %s: %w", tmp, err)
 	}
 	if err := os.Rename(tmp, cfgPath); err != nil {
-		os.Remove(tmp)
-		return fmt.Errorf("cannot rename %s to %s: %w", tmp, cfgPath, err)
+		rmErr := os.Remove(tmp)
+		renameErr := fmt.Errorf("cannot rename %s to %s: %w", tmp, cfgPath, err)
+		return errors.Join(rmErr, renameErr)
 	}
 	return nil
 }
