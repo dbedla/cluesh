@@ -183,9 +183,6 @@ func promptForExplainFlow(q string, limitInBytes int) (string, error) {
 	// drift alarm: show what actually arrived, before paying for the call.
 	// strconv.Quote neutralizes control/escape chars from untrusted input.
 	fmt.Printf("info: explaining: %s\n", strconv.Quote(q))
-	// drift guard: even a customized sysprompt-explain.md plus this prefix
-	// leaves no room for the LLM to guess the mode
-	q = explainMessage(q)
 
 	return q, nil
 }
@@ -220,13 +217,6 @@ func printLLMClaimOnCmd(noFileModification bool) {
 	} else {
 		color.Red("LLM claim: <some file will be modified>")
 	}
-}
-
-// explainMessage wraps the command with a mode-selecting prefix so the LLM
-// explains it instead of generating a new one — a fallback for customized
-// sysprompt.md files that never mention the explanation mode.
-func explainMessage(cmd string) string {
-	return "Explain this command; do not generate a new one:\n" + cmd
 }
 
 func buildPrompt(q string, m cluesh.ModelConfigData) (*rellm.Prompt, error) {

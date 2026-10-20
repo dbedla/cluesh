@@ -70,11 +70,3 @@ func TestDemandInputLimit(t *testing.T) {
 	require.Error(t, err, "demand over the limit must be refused")
 	assert.Contains(t, err.Error(), "input_limit_in_bytes")
 }
-
-func TestExplainMessage(t *testing.T) {
-	got := explainMessage("ls -l")
-	assert.True(t, strings.HasPrefix(got, "Explain this command; do not generate a new one:\n"),
-		"mode-selecting prefix must lead the message, got %q", got)
-	assert.True(t, strings.HasSuffix(got, "ls -l"),
-		"command must arrive intact after the prefix, got %q", got)
-}
