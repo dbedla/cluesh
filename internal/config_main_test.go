@@ -77,9 +77,9 @@ func TestIsFirstRun(t *testing.T) {
 	}
 }
 
-// input_limit_in_bytes: present but invalid (0, negative) rejected;
-// absent (config predates the field) amended in place — field added with
-// the default, every other key (_options included) kept.
+// input_limit_in_bytes: absent (a config written before the field) is
+// defaulted and persisted; a present value is used as-is, and a value below 1
+// is rejected. The amend rewrites the config with the default _options block.
 func TestLoadConfigInputLimit(t *testing.T) {
 	load := func(baseDir string, limit int) (MainConfig, error) {
 		_, _, err := LoadConfig(baseDir) // first run: generate defaults
@@ -103,7 +103,7 @@ func TestLoadConfigInputLimit(t *testing.T) {
 
 	cfg, err := load(t.TempDir(), 4096)
 	require.NoError(t, err)
-	assert.Equal(t, 4096, cfg.InputLimitInBytes)
+	assert.Equal(t, 4096, *cfg.InputLimitInBytes)
 
 	// simulate a config written before the field existed: delete the line
 	baseDir := t.TempDir()
@@ -118,7 +118,7 @@ func TestLoadConfigInputLimit(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte(out), 0o600))
 	cfg, _, err = LoadConfig(baseDir)
 	require.NoError(t, err)
-	assert.Equal(t, defaultInputLimitInBytes, cfg.InputLimitInBytes)
+	assert.Equal(t, defaultInputLimitInBytes, *cfg.InputLimitInBytes)
 
 	// the amend landed in the file, and everything else survived it
 	data, err = os.ReadFile(path)

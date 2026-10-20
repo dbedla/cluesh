@@ -72,7 +72,7 @@ func main() {
 
 	q := parseParams.Prompt
 	if !parseParams.Explain {
-		err := checkDemandLimit(q, mainCfg.InputLimitInBytes)
+		err := checkDemandLimit(q, *mainCfg.InputLimitInBytes)
 		if err != nil {
 			exit(err)
 		}
@@ -84,7 +84,7 @@ func main() {
 	sysPrompt := sysPrompts.Cmd
 	if parseParams.Explain {
 		sysPrompt = sysPrompts.Explain
-		q, err = promptForExplainFlow(q, mainCfg.InputLimitInBytes)
+		q, err = promptForExplainFlow(q, *mainCfg.InputLimitInBytes)
 		if err != nil {
 			exit(err)
 		}

@@ -100,14 +100,12 @@ type MainConfig struct {
 	PutCmdInClipboard       string `json:"put_cmd_in_clipboard"`      // always | never | read-only
 	Colors                  string `json:"colors"`                    // dark | light | none
 	ExecutionTimeoutMinutes int    `json:"execution_timeout_minutes"` // agent timeout, minutes — must be >=1, no upper limit
-	InputLimitInBytes       int    `json:"input_limit_in_bytes"`      // max size of the input prompt (demand or command to explain), bytes — must be >=1, no upper limit
+	InputLimitInBytes       *int   `json:"input_limit_in_bytes"`      // max size of the input prompt (demand or command to explain), bytes — nil → default, no upper limit
 }
 
-// defaultInputLimitInBytes is the input_limit_in_bytes default, in bytes.
 const defaultInputLimitInBytes = 65536
 
-// Sampling parameters (temperature, reasoning) are per model, configured in
-// the provider files — see Model.
+func ptr[T any](v T) *T { return &v }
 
 // configTemplate is what gets written on first run: the main config plus a
 // generated _options block listing every allowed value, so users can see
@@ -132,7 +130,7 @@ func DefaultMainConfig() MainConfig {
 		PutCmdInClipboard:       "always",
 		Colors:                  "dark",
 		ExecutionTimeoutMinutes: 5,
-		InputLimitInBytes:       defaultInputLimitInBytes,
+		InputLimitInBytes:       ptr(defaultInputLimitInBytes),
 	}
 }
 
@@ -247,44 +245,39 @@ func EnsureConfig(baseDir string) (created []string, err error) {
 	return created, nil
 }
 
+// writeJSON marshals v and writes it atomically (temp file + rename) so a
+// crash mid-write cannot leave a truncated config behind.
 func writeJSON(path string, v any) error {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
-		return fmt.Errorf("cannot write %s: %w", path, err)
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, append(data, '\n'), 0o600); err != nil {
+		return fmt.Errorf("cannot write %s: %w", tmp, err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return errors.Join(os.Remove(tmp), fmt.Errorf("cannot rename %s to %s: %w", tmp, path, err))
 	}
 	return nil
 }
 
-// amendConfigInputLimit adds input_limit_in_bytes with its default to a
-// config file that predates the field, keeping every other key (_options
-// included) unchanged. The write is atomic: temp file + rename.
+// amendConfigInputLimit rereads data as a full config, fills a missing (nil)
+// input_limit_in_bytes with the default, and rewrites the file with the
+// generated _options block. Existing settings survive the round trip and the
+// write is atomic (see writeJSON).
 func amendConfigInputLimit(cfgPath string, data []byte) error {
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
+	var t configTemplate
+	if err := json.Unmarshal(data, &t); err != nil {
 		return fmt.Errorf("cannot re-read %s: %w", cfgPath, err)
 	}
-	def, err := json.Marshal(defaultInputLimitInBytes)
-	if err != nil {
-		return err
+	if t.InputLimitInBytes == nil {
+		t.InputLimitInBytes = ptr(defaultInputLimitInBytes)
 	}
-	raw["input_limit_in_bytes"] = def
-	out, err := json.MarshalIndent(raw, "", "  ")
-	if err != nil {
-		return err
+	if t.Options == nil {
+		t.Options = configOptions()
 	}
-	tmp := cfgPath + ".tmp"
-	if err := os.WriteFile(tmp, append(out, '\n'), 0o600); err != nil {
-		return fmt.Errorf("cannot write %s: %w", tmp, err)
-	}
-	if err := os.Rename(tmp, cfgPath); err != nil {
-		rmErr := os.Remove(tmp)
-		renameErr := fmt.Errorf("cannot rename %s to %s: %w", tmp, cfgPath, err)
-		return errors.Join(rmErr, renameErr)
-	}
-	return nil
+	return writeJSON(cfgPath, t)
 }
 
 // LoadConfig reads and validates the main config and both sys prompt files.
@@ -325,24 +318,18 @@ func LoadConfig(baseDir string) (MainConfig, SysPrompts, error) {
 	if cfg.ExecutionTimeoutMinutes < 1 {
 		return MainConfig{}, SysPrompts{}, fmt.Errorf("%s: execution_timeout_minutes must be >=1, got %d", cfgPath, cfg.ExecutionTimeoutMinutes)
 	}
-	// input_limit_in_bytes: present → validated; absent (config predates
-	// the field) → added to the file with the default, every other key kept
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return MainConfig{}, SysPrompts{}, fmt.Errorf("invalid json in %s: %w", cfgPath, err)
-	}
-	if _, present := raw["input_limit_in_bytes"]; present {
-		if cfg.InputLimitInBytes < 1 {
-			return MainConfig{}, SysPrompts{}, fmt.Errorf("%s: input_limit_in_bytes must be >=1, got %d", cfgPath, cfg.InputLimitInBytes)
-		}
-	} else {
+	// input_limit_in_bytes: nil (absent, e.g. a config written before the
+	// field) → set the default and persist it; a present value below 1 is invalid
+	if cfg.InputLimitInBytes == nil {
 		if err := amendConfigInputLimit(cfgPath, data); err != nil {
 			// a failed amend must not block the run — in-memory default instead
 			fmt.Fprintf(os.Stderr, "warning: %v — using %d for this run\n", err, defaultInputLimitInBytes)
 		} else {
-			fmt.Printf("updated %s: added input_limit_in_bytes: %d\n", cfgPath, defaultInputLimitInBytes)
+			fmt.Printf("updated %s: input_limit_in_bytes: %d\n", cfgPath, defaultInputLimitInBytes)
 		}
-		cfg.InputLimitInBytes = defaultInputLimitInBytes
+		cfg.InputLimitInBytes = ptr(defaultInputLimitInBytes)
+	} else if *cfg.InputLimitInBytes < 1 {
+		return MainConfig{}, SysPrompts{}, fmt.Errorf("%s: input_limit_in_bytes must be >=1, got %d", cfgPath, *cfg.InputLimitInBytes)
 	}
 
 	readPrompt := func(path string) (string, error) {
