@@ -35,7 +35,8 @@ Run cluesh without a demand. On its first run, cluesh creates the configuration 
 ```console
 $  cluesh
 created ~/.cluesh/config.json
-created ~/.cluesh/sysprompt.md
+created ~/.cluesh/sysprompt-cmd.md
+created ~/.cluesh/sysprompt-explain.md
 created ~/.cluesh/providers/openrouter.json
 created ~/.cluesh/providers/openai.json
 created ~/.cluesh/providers/lmstudio.json
@@ -55,12 +56,13 @@ $  tree ~/.cluesh
 ~/.cluesh
 ├── config.json
 ├── providers
-│   ├── lmstudio.json
-│   ├── openai.json
-│   └── openrouter.json
-└── sysprompt.md
+│   ├── lmstudio.json
+│   ├── openai.json
+│   └── openrouter.json
+├── sysprompt-cmd.md
+└── sysprompt-explain.md
 
-2 directories, 5 files
+2 directories, 6 files
 ```
 
 The files have separate responsibilities:
@@ -69,7 +71,9 @@ The files have separate responsibilities:
 - `providers/openrouter.json` configures OpenRouter credentials and models.
 - `providers/openai.json` configures OpenAI credentials and models.
 - `providers/lmstudio.json` configures a local LM Studio endpoint.
-- `sysprompt.md` contains the system prompt used by cluesh.
+- `sysprompt-cmd.md` contains the system prompt for command generation.
+- `sysprompt-explain.md` contains the system prompt for command explanation (`-e`).
+  cluesh picks the matching prompt per run; edit either file to steer the model.
 
 ## 4. Choose the default model
 
@@ -200,12 +204,13 @@ $  tree ~/.cluesh
 ├── config.json
 ├── conversation.jsonl
 ├── providers
-│   ├── lmstudio.json
-│   ├── openai.json
-│   └── openrouter.json
-└── sysprompt.md
+│   ├── lmstudio.json
+│   ├── openai.json
+│   └── openrouter.json
+├── sysprompt-cmd.md
+└── sysprompt-explain.md
 
-2 directories, 6 files
+2 directories, 7 files
 ```
 
 `conversation.jsonl` stores the most recent conversation. A normal cluesh run starts a new conversation and replaces this file.
@@ -243,3 +248,47 @@ info: command in clipboard
 ```
 
 Because `-c` loads the previous exchange, cluesh understands that "revers order" refers to the earlier command and adds `-r` without requiring the full request again.
+
+## 9. Explain an existing command
+
+`-e` flips the direction: instead of generating a command from words, cluesh
+explains a command you already have. The command can come as an argument, from
+an editor or from a file/pipe:
+
+```console
+$  ./output/bin/cluesh -e "find . -type f -name '*.png' -size +1M"
+info: explaining: "find . -type f -name '*.png' -size +1M"
+
+Model: z-ai/glm-5.3-flash
+temperature=0.4 reasoning=low
+=
+
+find . -type f -name '*.png' -size +1M
+
+    find
+         .
+          Search starting from the current directory
+         -type f
+          Match only regular files
+         -name '*.png'
+          Match files whose names end in .png
+         -size +1M
+          Match files larger than 1 megabyte
+
+Recursively searches the current directory for regular PNG image files larger than 1 MB and prints their paths.
+
+info: tokens: in 220 (cached 0), out 186 (reasoning 1), total 406, cost $0.00009634
+LLM claim: <no file modification>
+info: command in clipboard
+```
+
+The `info: explaining: …` line echoes the command exactly as cluesh received
+it — the drift alarm for shell expansion. The command itself is repeated
+unchanged, each argument is explained, and the final paragraph (the model's
+`notes`) summarizes what the whole command does.
+
+All three input paths work the same way:
+
+- `cluesh -e "ls -l"` — command as argument (quote it, as usual, in single quotes when it contains `$()` or globs)
+- `cluesh -e` — opens `$EDITOR` on a terminal: paste, save, quit
+- `cluesh -e < mycmd.sh` or `cat mycmd.sh | cluesh -e` — from a file or pipe

@@ -14,17 +14,20 @@ import (
 func TestBaseDirInjection(t *testing.T) {
 	baseDir := t.TempDir()
 
-	cfg, sysPrompt, err := LoadConfig(baseDir)
+	cfg, sysPrompts, err := LoadConfig(baseDir)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, cfg.DefaultModelTag)
-	assert.NotEmpty(t, sysPrompt)
+	assert.NotEmpty(t, sysPrompts.Cmd)
+	assert.NotEmpty(t, sysPrompts.Explain)
 
 	assert.True(t, strings.HasPrefix(ConfigPath(baseDir), baseDir), "config path outside baseDir")
-	assert.True(t, strings.HasPrefix(SysPromptPath(baseDir), baseDir), "sysprompt path outside baseDir")
+	assert.True(t, strings.HasPrefix(SysPromptCmdPath(baseDir), baseDir), "cmd sysprompt path outside baseDir")
+	assert.True(t, strings.HasPrefix(SysPromptExplainPath(baseDir), baseDir), "explain sysprompt path outside baseDir")
 	assert.True(t, strings.HasPrefix(ConversationPath(baseDir), baseDir), "conversation path outside baseDir")
 
 	assert.FileExists(t, ConfigPath(baseDir))
-	assert.FileExists(t, SysPromptPath(baseDir))
+	assert.FileExists(t, SysPromptCmdPath(baseDir))
+	assert.FileExists(t, SysPromptExplainPath(baseDir))
 	// conversation.jsonl is deliberately absent: rellm's FilesystemConversation
 	// creates it lazily on first Append — missing file = empty conversation.
 }
@@ -72,4 +75,133 @@ func TestIsFirstRun(t *testing.T) {
 	if IsFirstRun(empty) {
 		t.Fatal("dir with a file should not be first run")
 	}
+}
+
+// input_limit_in_bytes: absent (a config written before the field) is
+// defaulted and persisted; a present value is used as-is, and a value below 1
+// is rejected. The amend rewrites the config with the default _options block.
+func TestLoadConfigInputLimit(t *testing.T) {
+	load := func(baseDir string, limit int) (MainConfig, error) {
+		_, _, err := LoadConfig(baseDir) // first run: generate defaults
+		require.NoError(t, err)
+		path := filepath.Join(baseDir, ConfigFileName)
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		out := strings.Replace(string(data),
+			fmt.Sprintf(`"input_limit_in_bytes": %d`, defaultInputLimitInBytes),
+			fmt.Sprintf(`"input_limit_in_bytes": %d`, limit), 1)
+		require.NoError(t, os.WriteFile(path, []byte(out), 0o600))
+		cfg, _, err := LoadConfig(baseDir)
+		return cfg, err
+	}
+
+	_, err := load(t.TempDir(), -1)
+	assert.Error(t, err, "negative input_limit_in_bytes must be rejected")
+
+	_, err = load(t.TempDir(), 0)
+	assert.Error(t, err, "explicit input_limit_in_bytes 0 must be rejected")
+
+	cfg, err := load(t.TempDir(), 4096)
+	require.NoError(t, err)
+	assert.Equal(t, 4096, *cfg.InputLimitInBytes)
+
+	// simulate a config written before the field existed: delete the line
+	baseDir := t.TempDir()
+	_, _, err = LoadConfig(baseDir)
+	require.NoError(t, err)
+	path := filepath.Join(baseDir, ConfigFileName)
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	out := strings.Replace(string(data),
+		fmt.Sprintf(",\n  %q: %d", "input_limit_in_bytes", defaultInputLimitInBytes), "", 1)
+	require.NotEqual(t, string(data), out, "removal pattern must match the generated config")
+	require.NoError(t, os.WriteFile(path, []byte(out), 0o600))
+	cfg, _, err = LoadConfig(baseDir)
+	require.NoError(t, err)
+	assert.Equal(t, defaultInputLimitInBytes, *cfg.InputLimitInBytes)
+
+	// the amend landed in the file, and everything else survived it
+	data, err = os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), fmt.Sprintf(`"input_limit_in_bytes": %d`, defaultInputLimitInBytes), "amend must add the field")
+	assert.Contains(t, string(data), `"default_model_tag": "or-glm53flash"`, "amend must keep existing fields")
+	assert.Contains(t, string(data), `_options`, "amend must keep the _options block")
+	assert.NoFileExists(t, path+".tmp", "amend must not leave a temp file")
+}
+
+// Guards the shell contract of the built-in sys prompt: generation must stay
+// bash-by-default, and the explain extension must carry its mode rules —
+// so a prompt edit can not silently drop either.
+func TestSysPromptContent(t *testing.T) {
+	assert.Contains(t, ProgramSysPrompt, "Bash is the default output shell")
+	assert.Contains(t, ProgramSysPrompt, "copy-paste ready bash command")
+	assert.NotContains(t, ProgramSysPrompt, "Explanation")
+
+	assert.Contains(t, ExplainSysPrompt, "Explanation Mode")
+	assert.Contains(t, ExplainSysPrompt, "Do not generate a new command")
+}
+
+// A pre-existing single sysprompt.md must survive the two-file split: it is
+// renamed to deprecated-sysprompt.md (kept, but unused), and both prompt
+// files are generated with defaults.
+func TestLegacySysPromptMigrated(t *testing.T) {
+	baseDir := t.TempDir()
+	legacy := filepath.Join(baseDir, LegacySysPromptFileName)
+	require.NoError(t, os.WriteFile(legacy, []byte("custom prompt"), 0o600))
+
+	_, _, err := LoadConfig(baseDir)
+	require.NoError(t, err)
+
+	assert.NoFileExists(t, legacy)
+	data, err := os.ReadFile(filepath.Join(baseDir, DeprecatedPrefix+LegacySysPromptFileName))
+	require.NoError(t, err)
+	assert.Equal(t, "custom prompt", string(data))
+	assert.FileExists(t, SysPromptCmdPath(baseDir))
+	assert.FileExists(t, SysPromptExplainPath(baseDir))
+}
+
+// Refusal case: a legacy sysprompt.md AND a deprecated-sysprompt.md (from an
+// earlier migration) both exist. The rename must be refused — not silently
+// overwrite the earlier deprecated prompt (os.Rename clobbers on Unix) —
+// with an error naming both files, and nothing on disk may change.
+func TestLegacySysPromptRenameRefusedWhenDeprecatedExists(t *testing.T) {
+	baseDir := t.TempDir()
+	legacy := filepath.Join(baseDir, LegacySysPromptFileName)
+	dep := filepath.Join(baseDir, DeprecatedPrefix+LegacySysPromptFileName)
+	require.NoError(t, os.WriteFile(legacy, []byte("second custom"), 0o600))
+	require.NoError(t, os.WriteFile(dep, []byte("first custom"), 0o600))
+
+	_, _, err := LoadConfig(baseDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), legacy, "error must name the legacy file")
+	assert.Contains(t, err.Error(), dep, "error must name the file that would be overwritten")
+
+	// both prompts survive untouched
+	data, rErr := os.ReadFile(legacy)
+	require.NoError(t, rErr)
+	assert.Equal(t, "second custom", string(data))
+	data, rErr = os.ReadFile(dep)
+	require.NoError(t, rErr)
+	assert.Equal(t, "first custom", string(data))
+}
+
+// Corner case: both new prompt files already exist, yet a legacy sysprompt.md
+// is still around — it must be deprecated in that state too.
+func TestLegacySysPromptDeprecatedWithNewFilesPresent(t *testing.T) {
+	baseDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(baseDir, LegacySysPromptFileName), []byte("custom"), 0o600))
+	require.NoError(t, os.WriteFile(SysPromptCmdPath(baseDir), []byte("cmd"), 0o600))
+	require.NoError(t, os.WriteFile(SysPromptExplainPath(baseDir), []byte("explain"), 0o600))
+
+	_, _, err := LoadConfig(baseDir)
+	require.NoError(t, err)
+
+	assert.NoFileExists(t, filepath.Join(baseDir, LegacySysPromptFileName))
+	data, err := os.ReadFile(filepath.Join(baseDir, DeprecatedPrefix+LegacySysPromptFileName))
+	require.NoError(t, err)
+	assert.Equal(t, "custom", string(data))
+	// the existing prompt files are untouched
+	data, err = os.ReadFile(SysPromptCmdPath(baseDir))
+	require.NoError(t, err)
+	assert.Equal(t, "cmd", string(data))
 }

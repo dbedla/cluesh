@@ -4,12 +4,12 @@ COVERAGE_PATH=./output/coverage/
 COMPLEXITY_PATH=./output/complexity/
 BIN_PATH=./output/bin/
 
-all: go-nuke list go-fmt go-build go-test go-lint go-cyclo go-coverage
-
 list:
 	@echo ""
 	@make -qpRr | grep -E '^[a-z].*:' | cut -d: -f1 | sort
 	@echo ""
+
+all: go-nuke list go-fmt go-build go-test go-lint go-cyclo go-coverage
 
 go-fmt:
 	gofmt -l -w ./internal ./cmd

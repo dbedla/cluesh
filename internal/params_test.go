@@ -23,6 +23,14 @@ func TestParseParams(t *testing.T) {
 		{"llm tag after prompt", []string{"do thing", "--llm", "or-gemma"}, Params{LLMTag: "or-gemma", Prompt: "do thing"}},
 		{"help no prompt", []string{"--help"}, Params{Help: true}},
 		{"help with prompt", []string{"-h", "do thing"}, Params{Help: true, Prompt: "do thing"}},
+		{"dash demand after --", []string{"--", "-v flag?"}, Params{Prompt: "-v flag?"}},
+		{"flags then -- then dash demand", []string{"-c", "--", "--not-a-flag"}, Params{Continue: true, Prompt: "--not-a-flag"}},
+		{"explain no prompt", []string{"--explain"}, Params{Explain: true}},
+		{"explain with continue", []string{"-c", "--explain"}, Params{Continue: true, Explain: true}},
+		{"explain with command argument", []string{"--explain", "ls -l"}, Params{Explain: true, Prompt: "ls -l"}},
+		{"short alias -e with argument", []string{"-e", "ls -l"}, Params{Explain: true, Prompt: "ls -l"}},
+		{"explain argument before flag", []string{"ls -l", "-e"}, Params{Explain: true, Prompt: "ls -l"}},
+		{"explain with llm tag", []string{"--llm", "or-gemma", "-e", "ls -l"}, Params{LLMTag: "or-gemma", Explain: true, Prompt: "ls -l"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -43,6 +51,7 @@ func TestParseParamsError(t *testing.T) {
 		{"unknown flag", []string{"-x"}},
 		{"llm missing value", []string{"--llm"}},
 		{"llm tag but no prompt", []string{"--llm", "or-gemma"}},
+		{"extra positional with explain", []string{"-e", "a", "b"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -67,8 +76,8 @@ func TestGetHelp(t *testing.T) {
 	out := GetHelp(baseDir)
 
 	for _, want := range []string{
-		"usage: cluesh", "-c, --continue", "--llm-list", "--llm", "-h, --help",
-		"config.json", "sysprompt.md", "conversation.jsonl", "openrouter.json",
+		"usage:", "-c, --continue", "--llm-list", "--llm", "-h, --help",
+		"config.json", "sysprompt-cmd.md", "sysprompt-explain.md", "conversation.jsonl", "openrouter.json",
 		"api_key_env", baseDir, "https://github.com/dbedla/cluesh",
 		"https://github.com/dbedla/rellm", "https://rellm.dev/agents/cluesh", "https://rellm.dev",
 	} {

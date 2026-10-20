@@ -17,6 +17,7 @@ type Params struct {
 	Continue bool   // -c: continue last conversation
 	LLMList  bool   // --llm-list: list configured models and exit
 	LLMTag   string // --llm: model tag to use for this run
+	Explain  bool   // --explain: command to explain comes from stdin
 	Help     bool   // --help: show help and exit
 	Prompt   string // the positional demand
 }
@@ -30,6 +31,7 @@ func newFlagSet() (*flag.FlagSet, *Params) {
 	fs.BoolVarP(&p.Continue, "continue", "c", false, "continue last conversation")
 	fs.BoolVar(&p.LLMList, "llm-list", false, "list configured models and exit")
 	fs.StringVarP(&p.LLMTag, "llm", "", "", "use model with tag <tag> this run (default_model_tag if unset)")
+	fs.BoolVarP(&p.Explain, "explain", "e", false, "explain a command: as argument ('ls -l'), in $EDITOR (no argument, terminal), or from stdin (file/pipe) — quoting passes through raw")
 	fs.BoolVarP(&p.Help, "help", "h", false, "show help and exit")
 	return fs, &p
 }
@@ -46,12 +48,13 @@ func ParseParams(args []string) (Params, error) {
 	}
 
 	positional := fs.Args()
-	// --llm-list and --help are informational runs: the demand is optional.
-	if len(positional) > 1 || (len(positional) == 0 && !p.LLMList && !p.Help) {
-		return Params{}, errors.New("usage: cluesh [-c] \"<demand>\" — exactly one prompt argument required (see --help)")
-	}
-	if len(positional) == 1 {
+	// -e/--explain accepts one optional positional: the command to explain.
+	if len(positional) > 0 {
 		p.Prompt = positional[0]
+	}
+	// --llm-list and --help are informational runs: the demand is optional.
+	if len(positional) > 1 || (len(positional) == 0 && !p.LLMList && !p.Help && !p.Explain) {
+		return Params{}, errors.New("usage: cluesh [-c] [-e [\"<command>\"]] \"<demand>\" — exactly one prompt argument required (see --help)")
 	}
 	return *p, nil
 }
@@ -69,38 +72,69 @@ func shortenHome(path string) string {
 // GetHelp returns usage, the generated flag list (pflag PrintDefaults), the
 // config location and key setup. baseDir is resolved by the caller so help
 // works even when the config is missing or broken.
+// helpHeader is the static top of --help: title, usage and examples. A raw
+// string keeps the column alignment visible (and editable) in the source.
+const helpHeader = `cluesh — natural-language demand in, one copy-paste-ready bash command out
+
+usage: 
+  cluesh [-c] [--llm <tag>] "<demand>"        generate a command
+  cluesh [-e ["<command>"]]                   explain one: argument, $EDITOR or stdin
+
+Examples:
+  cluesh "list all png files larger than 1MB"         generate a command
+  cluesh -c "now only the ones modified this week"    continue last conversation
+  cluesh --llm lms-gemma "count lines in *.go"        use a specific model this run
+  cluesh -e "ls -l"                                   explain this simple command
+  cluesh -e                                           paste/edit a command in $EDITOR
+  cluesh -e < mycmd.sh                                explain a command from a file
+  cat mycmd.sh | cluesh -e                            same, piped
+  cluesh --llm-list                                   list configured models
+  cluesh --help
+
+Flags:
+`
+
+// helpAPIKeys documents the provider key setup — static text below the
+// generated config-file list.
+const helpAPIKeys = `
+API key setup (per provider file, e.g. providers/openrouter.json):
+  "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)
+  "api_key": "sk-..."                   inline in the provider file (last resort)
+  both set? the environment variable wins
+`
+
+// helpLinks is the static footer of --help.
+const helpLinks = `
+Detailed info:
+https://rellm.dev/agents/cluesh — cluesh homepage
+https://github.com/dbedla/cluesh — #agent-of-rellm
+https://rellm.dev — rellm homepage
+https://github.com/dbedla/rellm — LLM communication framework
+`
+
 func GetHelp(baseDir string) string {
 	var help strings.Builder
 	fs, _ := newFlagSet()
-	help.WriteString("cluesh — natural-language demand in, one copy-paste-ready bash command out\n")
-	help.WriteString("\nusage: cluesh [-c] [--llm <tag>] \"<demand>\"\n\nFlags:\n")
+	help.WriteString(helpHeader)
 	fs.SetOutput(&help)
 	fs.PrintDefaults()
 
 	location := fmt.Sprintf("\nConfig location: %s\n", shortenHome(baseDir))
 	help.WriteString(location)
 	files := []struct{ name, desc string }{
-		{ConfigFileName, "main settings (default model, clipboard mode, colors, timeout)"},
-		{SysPromptFileName, "system prompt"},
+		{ConfigFileName, "main settings (default model, clipboard mode, colors, timeout, input limit)"},
+		{SysPromptCmdFileName, "system prompt: command generation"},
+		{SysPromptExplainFileName, "system prompt: command explanation (-e)"},
 		{ProvidersDir + "/", "one JSON file per provider (openrouter.json, openai.json, lmstudio.json)"},
 		{ConversationFileName, "persisted conversation (created on first ask)"},
 	}
 	for _, f := range files {
-		cfgFileAndDesc := fmt.Sprintf("  %-19s %s\n", f.name, f.desc)
+		cfgFileAndDesc := fmt.Sprintf("  %-22s %s\n", f.name, f.desc)
 		help.WriteString(cfgFileAndDesc)
 	}
-	help.WriteString(`
-API key setup (per provider file, e.g. providers/openrouter.json):
-  "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)
-  "api_key": "sk-..."                   inline in the provider file (last resort)
-  both set? the environment variable wins
-`)
+	help.WriteString(helpAPIKeys)
 
-	help.WriteString("\nDetailed info:\n")
-	help.WriteString("https://rellm.dev/agents/cluesh — cluesh homepage\n")
-	help.WriteString("https://github.com/dbedla/cluesh — #agent-of-rellm\n")
-	help.WriteString("https://rellm.dev — rellm homepage\n")
-	help.WriteString("https://github.com/dbedla/rellm — LLM communication framework\n")
+	help.WriteString(helpLinks)
 
 	return help.String()
 }

@@ -92,16 +92,18 @@ New to cluesh? Follow the step-by-step walkthrough in
 6. [Run the first request](doc/tutorial.md#6-run-the-first-request)
 7. [Inspect the saved conversation](doc/tutorial.md#7-inspect-the-saved-conversation)
 8. [Continue the conversation](doc/tutorial.md#8-continue-the-conversation)
+9. [Explain an existing command](doc/tutorial.md#9-explain-an-existing-command)
 
 ## First run
 
 The first run creates the configuration under `~/.cluesh/`:
 
 ```
-config.json          main settings (default model, clipboard mode, colors, timeout)
-sysprompt.md         system prompt
-providers/           one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
-conversation.jsonl   persisted conversation (created on the first ask)
+config.json            main settings (default model, clipboard mode, colors, timeout)
+sysprompt-cmd.md       system prompt: command generation
+sysprompt-explain.md   system prompt: command explanation (-e)
+providers/             one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
+conversation.jsonl     persisted conversation (created on the first ask)
 ```
 
 Every missing file is generated with default settings and reported:
@@ -171,41 +173,104 @@ Main settings in `config.json`:
 | `put_cmd_in_clipboard`    | `always` \| `never` \| `read-only`            | `always` |
 | `colors`                  | `dark` \| `light` \| `none` (`NO_COLOR` wins) | `dark` |
 | `execution_timeout_minutes` | agent timeout per run                       | `5` |
+| `input_limit_in_bytes`   | max size of the input prompt (demand or command to explain), bytes (>= 1) | `65536` |
 
 ## Usage
 
 ```
-cluesh [-c] [--llm <tag>] "<demand>"
+cluesh [-c] [--llm <tag>] "<demand>"             generate a command
+cluesh [-e ["<command>"]]                        explain one: argument, $EDITOR or stdin
 ```
 
 Examples:
 
 ```
-cluesh "list all png files larger than 1MB"
-cluesh -c "now only the ones modified this week"      continue last conversation
-cluesh --llm lms-gemma "count lines in *.go"          use a specific model this run
-cluesh --llm-list                                     show all configured models
+cluesh "list all png files larger than 1MB"       generate a command
+cluesh -c "now only the ones modified this week"  continue last conversation
+cluesh --llm lms-gemma "count lines in *.go"      use a specific model this run
+cluesh -e "ls -l"                                 explain this simple command
+cluesh -e                                         paste/edit a command in $EDITOR
+cluesh -e < mycmd.sh                              explain a command from a file
+cat mycmd.sh | cluesh -e                          same, piped
+cluesh --llm-list                                 list configured models
 cluesh --help
 ```
+
+### Passing commands safely
+
+Your shell expands `$()`, backticks and globs inside *double* quotes before
+cluesh even sees the text — sometimes running a command in the process.
+cluesh never executes anything itself; the shell acts before it. Both modes
+below sidestep that.
+
+**Generating a command** — pass the demand in *single* quotes, which the
+shell never touches:
+
+```
+cluesh 'delete files under $(pwd)/tmp'    $() reaches the LLM as text
+cluesh "delete files under $(pwd)/tmp"    shell runs pwd NOW — avoid
+```
+
+A demand that *starts with* `-` looks like a flag — put `--` in front:
+
+```
+cluesh -- '-v flag: what does it do?'
+```
+
+**Explaining a command** — use `-e`. From a file, a pipe or your editor
+the command reaches cluesh unexpanded; as an argument it follows the
+quoting rules above — single quotes when the command contains `$()`,
+backticks or globs:
+
+```
+cluesh -e 'ls -l'                      short and simple: as argument
+cluesh -e < mycmd.sh                   command from a file
+cat mycmd.sh | cluesh -e               same, piped
+cluesh -e                              opens $EDITOR: type or paste, save, quit
+```
+
+Whatever you pass, cluesh echoes `info: explaining: <command>` before the
+LLM call — glance at it: if the shell expanded something (`$()` already
+ran), you'll see it there.
+
+An explain run repeats the command unchanged, explains every argument, and
+closes with a prose paragraph (the model's `notes`) summarizing what the
+whole command does — for argument-less commands like `pwd`, that paragraph
+is the entire explanation.
 
 ## Full help
 
 ```
 cluesh — natural-language demand in, one copy-paste-ready bash command out
 
-usage: cluesh [-c] [--llm <tag>] "<demand>"
+usage: 
+  cluesh [-c] [--llm <tag>] "<demand>"        generate a command
+  cluesh [-e ["<command>"]]                   explain one: argument, $EDITOR or stdin
+
+Examples:
+  cluesh "list all png files larger than 1MB"         generate a command
+  cluesh -c "now only the ones modified this week"    continue last conversation
+  cluesh --llm lms-gemma "count lines in *.go"        use a specific model this run
+  cluesh -e "ls -l"                                   explain this simple command
+  cluesh -e                                           paste/edit a command in $EDITOR
+  cluesh -e < mycmd.sh                                explain a command from a file
+  cat mycmd.sh | cluesh -e                            same, piped
+  cluesh --llm-list                                   list configured models
+  cluesh --help
 
 Flags:
   -c, --continue     continue last conversation
+  -e, --explain      explain a command: as argument ('ls -l'), in $EDITOR (no argument, terminal), or from stdin (file/pipe) — quoting passes through raw
   -h, --help         show help and exit
       --llm string   use model with tag <tag> this run (default_model_tag if unset)
       --llm-list     list configured models and exit
 
 Config location: ~/.cluesh
-  config.json         main settings (default model, clipboard mode, colors, timeout)
-  sysprompt.md        system prompt
-  providers/          one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
-  conversation.jsonl  persisted conversation (created on first ask)
+  config.json            main settings (default model, clipboard mode, colors, timeout)
+  sysprompt-cmd.md       system prompt: command generation
+  sysprompt-explain.md   system prompt: command explanation (-e)
+  providers/             one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
+  conversation.jsonl     persisted conversation (created on first ask)
 
 API key setup (per provider file, e.g. providers/openrouter.json):
   "api_key_env": "OPENROUTER_API_KEY"   key from environment (recommended)
@@ -217,6 +282,7 @@ https://rellm.dev/agents/cluesh — cluesh homepage
 https://github.com/dbedla/cluesh — #agent-of-rellm
 https://rellm.dev — rellm homepage
 https://github.com/dbedla/rellm — LLM communication framework
+
 ```
 
 ## Models list
@@ -258,3 +324,11 @@ Windows) — install one of them, or set `put_cmd_in_clipboard`:
 | `never`      | never copy                                            |
 
 cluesh never executes commands itself.
+
+## Platform support
+
+Unix-like systems (Linux, macOS, WSL) are stable. Native Windows is
+**experimental**: the editor mode (`cluesh -e` without an argument) uses
+`cmd /c` with `$VISUAL`/`$EDITOR` and a `notepad` fallback, and the clipboard
+uses `clip.exe` — but the rest of the Windows path is not battle-tested.
+On Windows, prefer WSL, where everything works as on Linux.

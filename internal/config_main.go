@@ -9,24 +9,64 @@ import (
 	"path/filepath"
 )
 
-// ProgramSysPrompt is the built-in sys prompt. It is written into a freshly
-// generated config and cluesh always reads the sys prompt from config after
-// that — this constant is the single source of the default.
-const ProgramSysPrompt = `# Task
+// ProgramSysPrompt is the built-in sys prompt for generation mode (no -e),
+// written into sysprompt-cmd.md on first run. cluesh always reads the sys
+// prompts from the config files after that — these constants are the single
+// source of the defaults. The explain-mode counterpart is ExplainSysPrompt.
+const ProgramSysPrompt = `
+# Domain Expertise
+Bash, Zsh, Shell Scripting (sh/csh/tcsh), PowerShell, and general command-line interfaces.
 
-Provide one final bash command (or bash command combination) which fulfills the requested demand. You are a bash expert.
-The answer must be a oneline copy-paste ready bash command.
+# Task
+
+Generate one final command which fulfills the requested demand.
+
+**Bash is the default output shell.** Only when the user explicitly asks for a
+different shell (e.g. Zsh or PowerShell), produce the command for that shell
+instead and note the deviation in "notes".
 
 # Rules
 
-- Prefer these commands where possible: find, grep, cut, sort, uniq, xargs, wc, head, cat, less, tail, wc, ls, tree.
-- No loops and ifs unless absolutely necessary.
-- Placeholder in example should be as short as possible.
-- sub_commands must list EVERY command of the pipeline in order, including the first, each with ALL its arguments explained — e.g. "ls -la dir" → one sub_commands entry "ls" with arguments -l, -a, dir; never leave sub_commands empty.
+- The answer must be a one-line, copy-paste ready bash command (unless the
+  user explicitly asked for another shell, see above).
+- **Optimization**: Prefer these utilities where possible: find, grep, cut, sort, uniq, xargs, wc, head, cat, less, tail, ls, tree.
+- **Simplicity**: Avoid control structures (loops, if/else) unless absolutely necessary for the task.
+- **Placeholders**: Use the shortest possible placeholders in any examples provided.
+- **Deconstruction (Crucial)**: You must populate the "sub_commands" field to break down the logic:
+    - Every component of the pipeline must be listed in sequential order.
+    - Each entry must include the base command and an explanation of ALL its arguments (e.g., "ls -la dir" -> one entry with command ls and arguments -l, -a, dir).
+    - Never leave the "sub_commands" field empty.
 
 # Output
 
-Return only JSON matching the given schema.`
+Return only JSON matching the given schema.
+
+`
+
+// ExplainSysPrompt is the built-in sys prompt for explain mode (-e), kept
+// in its own file (sysprompt-explain.md) so the two modes can be edited
+// independently.
+const ExplainSysPrompt = `
+# Explanation Mode
+
+The user input is an existing command, NOT a demand. Explain it:
+
+- Do not generate a new command. Copy the input command as given into
+  "final_command", unchanged.
+- Deconstruct the command: list EVERY subcommand of the pipeline in order,
+  each with ALL its arguments explained — e.g., "ls -la dir" -> one entry
+  with command ls and arguments -l, -a, dir. Never leave "sub_commands" empty.
+- Do not evaluate correctness or suggest improvements, only explain what
+  each part does.
+- Set "read_only" to true when the command changes no file, false otherwise.
+- In "notes", give a short explanation of what the command does overall —
+  it is the only prose the user sees for commands without arguments.
+
+# Output
+
+Return only JSON matching the given schema.
+
+`
 
 // ConfigDir is the single place where all cluesh configuration lives:
 // config.json (main), provider files, tools.json, last conversation.
@@ -35,10 +75,20 @@ const ConfigDir = ".cluesh"
 // ConfigFileName is the main configuration file inside ConfigDir.
 const ConfigFileName = "config.json"
 
-// SysPromptFileName is the markdown sys prompt file inside ConfigDir.
-// The prompt lives in its own file because JSON has no raw multiline strings —
-// no \n escapes to fight with when editing it.
-const SysPromptFileName = "sysprompt.md"
+// The sys prompts live in their own files because JSON has no raw multiline
+// strings — no \n escapes to fight with when editing them.
+const (
+	// SysPromptCmdFileName is the generation-mode (-e absent) sys prompt file.
+	SysPromptCmdFileName = "sysprompt-cmd.md"
+	// SysPromptExplainFileName is the explain-mode (-e) sys prompt file.
+	SysPromptExplainFileName = "sysprompt-explain.md"
+	// LegacySysPromptFileName is the single-prompt file from before the two
+	// prompt files existed; on startup it is renamed with the deprecated
+	// prefix so a customized prompt is kept but no longer used.
+	LegacySysPromptFileName = "sysprompt.md"
+	// DeprecatedPrefix marks superseded config files, e.g. deprecated-sysprompt.md.
+	DeprecatedPrefix = "deprecated-"
+)
 
 // ConversationFileName is the persisted conversation file inside ConfigDir.
 // JSON lines (rellm FilesystemConversation); missing file = empty conversation.
@@ -50,10 +100,12 @@ type MainConfig struct {
 	PutCmdInClipboard       string `json:"put_cmd_in_clipboard"`      // always | never | read-only
 	Colors                  string `json:"colors"`                    // dark | light | none
 	ExecutionTimeoutMinutes int    `json:"execution_timeout_minutes"` // agent timeout, minutes — must be >=1, no upper limit
+	InputLimitInBytes       *int   `json:"input_limit_in_bytes"`      // max size of the input prompt (demand or command to explain), bytes — nil → default, no upper limit
 }
 
-// Sampling parameters (temperature, reasoning) are per model, configured in
-// the provider files — see Model.
+const defaultInputLimitInBytes = 65536
+
+func ptr[T any](v T) *T { return &v }
 
 // configTemplate is what gets written on first run: the main config plus a
 // generated _options block listing every allowed value, so users can see
@@ -78,6 +130,7 @@ func DefaultMainConfig() MainConfig {
 		PutCmdInClipboard:       "always",
 		Colors:                  "dark",
 		ExecutionTimeoutMinutes: 5,
+		InputLimitInBytes:       ptr(defaultInputLimitInBytes),
 	}
 }
 
@@ -96,9 +149,20 @@ func ConfigPath(baseDir string) string {
 	return filepath.Join(baseDir, ConfigFileName)
 }
 
-// SysPromptPath returns the path of the sys prompt file inside baseDir.
-func SysPromptPath(baseDir string) string {
-	return filepath.Join(baseDir, SysPromptFileName)
+// SysPromptCmdPath returns the path of the generation sys prompt file.
+func SysPromptCmdPath(baseDir string) string {
+	return filepath.Join(baseDir, SysPromptCmdFileName)
+}
+
+// SysPromptExplainPath returns the path of the explain sys prompt file.
+func SysPromptExplainPath(baseDir string) string {
+	return filepath.Join(baseDir, SysPromptExplainFileName)
+}
+
+// SysPrompts carries both mode prompts, read from their files.
+type SysPrompts struct {
+	Cmd     string // generation mode (no -e)
+	Explain string // explanation mode (-e)
 }
 
 // ConversationPath returns the path of the conversation file inside baseDir.
@@ -114,90 +178,175 @@ func IsFirstRun(baseDir string) bool {
 	return err != nil || len(entries) == 0
 }
 
-// EnsureConfig makes sure the base dir with config.json and sysprompt.md exists.
-// Missing files are generated with default settings; created reports them.
+// EnsureConfig makes sure the base dir with config.json, sysprompt-cmd.md
+// and sysprompt-explain.md exists. Missing files are generated with default
+// settings; created reports them. A legacy sysprompt.md is kept but renamed
+// with the deprecated- prefix, so its content is preserved yet no longer used.
 func EnsureConfig(baseDir string) (created []string, err error) {
 	if mkErr := os.MkdirAll(baseDir, 0o755); mkErr != nil {
 		return nil, fmt.Errorf("cannot create config dir %s: %w", baseDir, mkErr)
 	}
-
 	cfgPath := ConfigPath(baseDir)
-	if _, statErr := os.Stat(cfgPath); errors.Is(statErr, fs.ErrNotExist) {
-		if wErr := writeJSON(cfgPath, configTemplate{Options: configOptions(), MainConfig: DefaultMainConfig()}); wErr != nil {
-			return nil, wErr
+	_, statErr := os.Stat(cfgPath)
+	if errors.Is(statErr, fs.ErrNotExist) {
+		writeErr := writeJSON(cfgPath, configTemplate{Options: configOptions(), MainConfig: DefaultMainConfig()})
+		if writeErr != nil {
+			return nil, writeErr
 		}
 		created = append(created, cfgPath)
 	} else if statErr != nil {
 		return nil, fmt.Errorf("cannot access %s: %w", cfgPath, statErr)
 	}
 
-	spPath := SysPromptPath(baseDir)
-	if _, statErr := os.Stat(spPath); errors.Is(statErr, fs.ErrNotExist) {
-		if wErr := os.WriteFile(spPath, []byte(ProgramSysPrompt), 0o600); wErr != nil {
-			return nil, fmt.Errorf("cannot write %s: %w", spPath, wErr)
+	// Deprecate the legacy single sysprompt no matter what state the new
+	// prompt files are in — e.g. both already generated, yet sysprompt.md
+	// still around.
+	legacyPath := filepath.Join(baseDir, LegacySysPromptFileName)
+	_, legErr := os.Stat(legacyPath)
+	if legErr == nil {
+		depPath := filepath.Join(baseDir, DeprecatedPrefix+LegacySysPromptFileName)
+		// refuse to overwrite: an existing deprecated file may hold an earlier
+		// customized prompt, and os.Rename silently clobbers it on Unix
+		if _, depErr := os.Stat(depPath); depErr == nil {
+			return nil, fmt.Errorf("%s needs manual action: both it and %s are system prompt files (the deprecated one from an earlier migration), and renaming would overwrite the latter — remove or rename one of them yourself, then rerun cluesh", legacyPath, depPath)
 		}
-		created = append(created, spPath)
+		renameErr := os.Rename(legacyPath, depPath)
+		if renameErr != nil {
+			return nil, fmt.Errorf("cannot rename %s to %s: %w", legacyPath, depPath, renameErr)
+		}
+		created = append(created, depPath)
+	} else if !errors.Is(legErr, fs.ErrNotExist) {
+		return nil, fmt.Errorf("cannot access %s: %w", legacyPath, legErr)
+	}
+
+	cmdPath := SysPromptCmdPath(baseDir)
+	_, statErr = os.Stat(cmdPath)
+	if errors.Is(statErr, fs.ErrNotExist) {
+		writeErr := os.WriteFile(cmdPath, []byte(ProgramSysPrompt), 0o600)
+		if writeErr != nil {
+			return nil, fmt.Errorf("cannot write %s: %w", cmdPath, writeErr)
+		}
+		created = append(created, cmdPath)
 	} else if statErr != nil {
-		return nil, fmt.Errorf("cannot access %s: %w", spPath, statErr)
+		return nil, fmt.Errorf("cannot access %s: %w", cmdPath, statErr)
+	}
+
+	expPath := SysPromptExplainPath(baseDir)
+	_, statErr = os.Stat(expPath)
+	if errors.Is(statErr, fs.ErrNotExist) {
+		writeErr := os.WriteFile(expPath, []byte(ExplainSysPrompt), 0o600)
+		if writeErr != nil {
+			return nil, fmt.Errorf("cannot write %s: %w", expPath, writeErr)
+		}
+		created = append(created, expPath)
+	} else if statErr != nil {
+		return nil, fmt.Errorf("cannot access %s: %w", expPath, statErr)
 	}
 	return created, nil
 }
 
+// writeJSON marshals v and writes it atomically (temp file + rename) so a
+// crash mid-write cannot leave a truncated config behind.
 func writeJSON(path string, v any) error {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
-		return fmt.Errorf("cannot write %s: %w", path, err)
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, append(data, '\n'), 0o600); err != nil {
+		return fmt.Errorf("cannot write %s: %w", tmp, err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return errors.Join(os.Remove(tmp), fmt.Errorf("cannot rename %s to %s: %w", tmp, path, err))
 	}
 	return nil
 }
 
-// LoadConfig reads and validates the main config and the sys prompt file.
+// amendConfigInputLimit rereads data as a full config, fills a missing (nil)
+// input_limit_in_bytes with the default, and rewrites the file with the
+// generated _options block. Existing settings survive the round trip and the
+// write is atomic (see writeJSON).
+func amendConfigInputLimit(cfgPath string, data []byte) error {
+	var t configTemplate
+	if err := json.Unmarshal(data, &t); err != nil {
+		return fmt.Errorf("cannot re-read %s: %w", cfgPath, err)
+	}
+	if t.InputLimitInBytes == nil {
+		t.InputLimitInBytes = ptr(defaultInputLimitInBytes)
+	}
+	if t.Options == nil {
+		t.Options = configOptions()
+	}
+	return writeJSON(cfgPath, t)
+}
+
+// LoadConfig reads and validates the main config and both sys prompt files.
 // Missing files are generated on first run with a notice.
-func LoadConfig(baseDir string) (MainConfig, string, error) {
+func LoadConfig(baseDir string) (MainConfig, SysPrompts, error) {
 	created, err := EnsureConfig(baseDir)
 	for _, p := range created {
 		fmt.Printf("created %s\n", p)
 	}
 	if err != nil {
-		return MainConfig{}, "", err
+		return MainConfig{}, SysPrompts{}, err
 	}
 
 	cfgPath := ConfigPath(baseDir)
 	data, err := os.ReadFile(cfgPath)
 	if err != nil {
-		return MainConfig{}, "", fmt.Errorf("cannot read %s: %w", cfgPath, err)
+		return MainConfig{}, SysPrompts{}, fmt.Errorf("cannot read %s: %w", cfgPath, err)
 	}
 
 	var cfg MainConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return MainConfig{}, "", fmt.Errorf("invalid json in %s: %w", cfgPath, err)
+		return MainConfig{}, SysPrompts{}, fmt.Errorf("invalid json in %s: %w", cfgPath, err)
 	}
 
 	switch cfg.PutCmdInClipboard {
 	case "always", "never", "read-only":
 	default:
-		return MainConfig{}, "", fmt.Errorf("%s: put_cmd_in_clipboard must be one of always|never|read-only, got %q", cfgPath, cfg.PutCmdInClipboard)
+		return MainConfig{}, SysPrompts{}, fmt.Errorf("%s: put_cmd_in_clipboard must be one of always|never|read-only, got %q", cfgPath, cfg.PutCmdInClipboard)
 	}
 	switch cfg.Colors {
 	case "dark", "light", "none":
 	default:
-		return MainConfig{}, "", fmt.Errorf("%s: colors must be one of dark|light|none, got %q", cfgPath, cfg.Colors)
+		return MainConfig{}, SysPrompts{}, fmt.Errorf("%s: colors must be one of dark|light|none, got %q", cfgPath, cfg.Colors)
 	}
 	if cfg.DefaultModelTag == "" {
-		return MainConfig{}, "", errors.New("default_model_tag is missing in " + cfgPath + " — run cluesh --llm-list to see configured models")
+		return MainConfig{}, SysPrompts{}, errors.New("default_model_tag is missing in " + cfgPath + " — run cluesh --llm-list to see configured models")
 	}
 	if cfg.ExecutionTimeoutMinutes < 1 {
-		return MainConfig{}, "", fmt.Errorf("%s: execution_timeout_minutes must be >=1, got %d", cfgPath, cfg.ExecutionTimeoutMinutes)
+		return MainConfig{}, SysPrompts{}, fmt.Errorf("%s: execution_timeout_minutes must be >=1, got %d", cfgPath, cfg.ExecutionTimeoutMinutes)
+	}
+	// input_limit_in_bytes: nil (absent, e.g. a config written before the
+	// field) → set the default and persist it; a present value below 1 is invalid
+	if cfg.InputLimitInBytes == nil {
+		if err := amendConfigInputLimit(cfgPath, data); err != nil {
+			// a failed amend must not block the run — in-memory default instead
+			fmt.Fprintf(os.Stderr, "warning: %v — using %d for this run\n", err, defaultInputLimitInBytes)
+		} else {
+			fmt.Printf("updated %s: input_limit_in_bytes: %d\n", cfgPath, defaultInputLimitInBytes)
+		}
+		cfg.InputLimitInBytes = ptr(defaultInputLimitInBytes)
+	} else if *cfg.InputLimitInBytes < 1 {
+		return MainConfig{}, SysPrompts{}, fmt.Errorf("%s: input_limit_in_bytes must be >=1, got %d", cfgPath, *cfg.InputLimitInBytes)
 	}
 
-	spPath := SysPromptPath(baseDir)
-	sysPrompt, err := os.ReadFile(spPath)
+	readPrompt := func(path string) (string, error) {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("cannot read sys prompt %s: %w", path, err)
+		}
+		return string(data), nil
+	}
+	cmdPrompt, err := readPrompt(SysPromptCmdPath(baseDir))
 	if err != nil {
-		return MainConfig{}, "", fmt.Errorf("cannot read sys prompt %s: %w", spPath, err)
+		return MainConfig{}, SysPrompts{}, err
+	}
+	explainPrompt, err := readPrompt(SysPromptExplainPath(baseDir))
+	if err != nil {
+		return MainConfig{}, SysPrompts{}, err
 	}
 
-	return cfg, string(sysPrompt), nil
+	return cfg, SysPrompts{Cmd: cmdPrompt, Explain: explainPrompt}, nil
 }

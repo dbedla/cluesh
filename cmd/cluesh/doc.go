@@ -4,20 +4,51 @@
 //
 // # Usage
 //
-//	cluesh [-c] [--llm <tag>] "<demand>"
+//	cluesh [-c] [--llm <tag>] "<demand>"              generate a command
+//	cluesh [-e ["<command>"]]                         explain one: argument, $EDITOR or stdin
 //
-//	cluesh "list all png files larger than 1MB"
-//	cluesh -c "now only the ones modified this week"   continue last conversation
-//	cluesh --llm lms-gemma "count lines in *.go"       use a specific model
-//	cluesh --llm-list                                  list configured models
+//	cluesh "list all png files larger than 1MB"       generate a command
+//	cluesh -c "now only the ones modified this week"  continue last conversation
+//	cluesh --llm lms-gemma "count lines in *.go"      use a specific model this run
+//	cluesh -e "ls -l"                                 explain this simple command
+//	cluesh -e                                         paste/edit a command in $EDITOR
+//	cluesh -e < mycmd.sh                              explain a command from a file
+//	cat mycmd.sh | cluesh -e                          same, piped
+//	cluesh --llm-list                                 list configured models
 //	cluesh --help
 //
 // Flags:
 //
 //	-c, --continue     continue last conversation
+//	-e, --explain      explain a command: as argument ("ls -l"), in $EDITOR
+//	                   (no argument, terminal), or from stdin (file/pipe) —
+//	                   quoting passes through raw
 //	-h, --help         show help and exit
 //	    --llm string   use model with tag <tag> this run (default_model_tag if unset)
 //	    --llm-list     list configured models and exit
+//
+// # Passing commands safely
+//
+// The shell expands $(), backticks and globs inside double quotes before
+// cluesh even sees the text — sometimes running a command in the process.
+// cluesh never executes anything itself; the shell acts before it.
+//
+// Generating: pass the demand in single quotes, which the shell never
+// touches. A demand that starts with '-' needs the -- end-of-flags marker:
+//
+//	cluesh 'delete files under $(pwd)/tmp'   $() reaches the LLM as text
+//	cluesh -- '-v flag: what does it do?'
+//
+// Explaining: use -e. From a file, a pipe or $EDITOR the command reaches
+// cluesh unexpanded; as an argument it follows the quoting rules above —
+// single quotes when the command contains $(), backticks or globs:
+//
+//	cluesh -e 'ls -l'                short and simple: as argument
+//	cluesh -e < mycmd.sh             command from a file
+//	cluesh -e                        opens $EDITOR: paste, save, quit
+//
+// cluesh echoes `info: explaining: <command>` before the call — if the
+// shell expanded something, you'll see it there.
 //
 // # Install
 //
@@ -27,10 +58,11 @@
 //
 // Configuration lives under ~/.cluesh:
 //
-//	config.json         main settings (default model, clipboard mode, colors, timeout)
-//	sysprompt.md        system prompt
-//	providers/          one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
-//	conversation.jsonl  persisted conversation (created on first ask)
+//	config.json          main settings (default model, clipboard mode, colors, timeout, input limit)
+//	sysprompt-cmd.md     system prompt: command generation
+//	sysprompt-explain.md system prompt: command explanation (-e)
+//	providers/           one JSON file per provider (openrouter.json, openai.json, lmstudio.json)
+//	conversation.jsonl   persisted conversation (created on first ask)
 //
 // Every missing file is generated with defaults on the first run; existing
 // files are never overwritten. Each provider file references an API key via
@@ -39,6 +71,13 @@
 //
 // cluesh never executes commands itself; the only side effect is the
 // clipboard.
+//
+// # Platform support
+//
+// Unix-like systems (Linux, macOS, WSL) are stable. Native Windows is
+// experimental: editor mode uses cmd /c with VISUAL/EDITOR and a notepad
+// fallback, the clipboard uses clip.exe; on Windows prefer WSL, where
+// everything works as on Linux.
 //
 // # Links
 //
