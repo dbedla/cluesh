@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
-	"strings"
 	"time"
 
 	"golang.org/x/term"
@@ -301,7 +300,7 @@ func readFromEditor(limitInBytes int) (_ string, finalError error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(b)), nil
+	return string(b), nil
 }
 
 // printUsage prints the token/cost summary line; silent without stats.
