@@ -167,7 +167,7 @@ func promptForExplainFlow(q string, limitInBytes int) (string, error) {
 			// +1 so an over-limit input is detected without reading it all
 			var b []byte
 			b, err = io.ReadAll(io.LimitReader(os.Stdin, int64(limitInBytes+1)))
-			q = strings.TrimSpace(string(b))
+			q = string(b)
 		}
 		if err != nil {
 			return "", err
